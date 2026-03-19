@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 
 export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music";
 
-const BASE_PATH = "/hvylyna-movchannya";
+// Helper to get absolute path for GitHub Pages
+const getAudioPath = (filename: string) => {
+  if (typeof window === "undefined") return "";
+  const origin = window.location.origin;
+  return `${origin}/hvylyna-movchannya/audio/${filename}`;
+};
 
 export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0) => {
   const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
@@ -12,9 +17,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const [isTestMode, setIsTestMode] = useState(false);
   const [audioMode, setAudioMode] = useState<AudioMode>("speech_metronome");
 
-  // Use a single ref for the active audio to prevent overlaps
-  const activeAudio = useRef<HTMLAudioElement | null>(null);
-  const secondaryAudio = useRef<HTMLAudioElement | null>(null);
+  const currentAudio = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -34,7 +37,6 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       }
 
       const diff = target.getTime() - now.getTime();
-
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -52,7 +54,6 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
     const timer = setInterval(checkTime, 1000);
     checkTime();
-
     return () => clearInterval(timer);
   }, [isPlaying, isTestMode, targetHour, targetMinute, audioMode]);
 
@@ -61,53 +62,60 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     localStorage.setItem("hvylyna_audio_mode", mode);
   };
 
+  const playFile = (filename: string, loop: boolean = false): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(getAudioPath(filename));
+      audio.loop = loop;
+      currentAudio.current = audio;
+
+      audio.play()
+        .then(() => {
+          if (loop) {
+            resolve(); // If looping, we consider it "started"
+          } else {
+            audio.onended = () => resolve();
+          }
+        })
+        .catch(err => {
+          console.error(`Error playing ${filename}:`, err);
+          reject(err);
+        });
+    });
+  };
+
   const startPlayback = async () => {
     if (isPlaying) return;
     setIsPlaying(true);
 
     try {
       if (audioMode === "metronome_only") {
-        const audio = new Audio(`${BASE_PATH}/audio/metronome.mp3`);
-        audio.loop = true;
-        activeAudio.current = audio;
-        await audio.play();
+        await playFile("metronome.mp3", true);
         setTimeout(stopPlayback, 60000);
       } else {
-        // Mode with Voice
-        const intro = new Audio(`${BASE_PATH}/audio/intro.mp3`);
-        activeAudio.current = intro;
+        // Voice + something
+        try {
+          // Play Voice FIRST and WAIT for it to end
+          await playFile("intro.mp3", false);
+        } catch (e) {
+          console.warn("Voice failed, skipping to background", e);
+        }
 
-        intro.onended = async () => {
-          // Determine next sound
-          const nextFile = audioMode === "speech_music" 
-            ? `${BASE_PATH}/audio/metronome_only.mp3` // Fallback for corrupted music
-            : `${BASE_PATH}/audio/metronome.mp3`;
-            
-          const bg = new Audio(nextFile);
-          bg.loop = true;
-          secondaryAudio.current = bg;
-          await bg.play();
-          setTimeout(stopPlayback, 60000);
-        };
-
-        await intro.play();
+        // Only after voice ends (or fails), play background
+        const bgFile = audioMode === "speech_music" ? "metronome_only.mp3" : "metronome.mp3";
+        await playFile(bgFile, true);
+        setTimeout(stopPlayback, 60000);
       }
     } catch (error) {
-      console.error("Playback failed:", error);
-      // Ensure we don't get stuck in playing state if audio fails
-      setTimeout(stopPlayback, 5000); 
+      console.error("Critical playback error:", error);
+      stopPlayback();
     }
   };
 
   const stopPlayback = () => {
-    if (activeAudio.current) {
-      activeAudio.current.pause();
-      activeAudio.current.onended = null;
-      activeAudio.current = null;
-    }
-    if (secondaryAudio.current) {
-      secondaryAudio.current.pause();
-      secondaryAudio.current = null;
+    if (currentAudio.current) {
+      currentAudio.current.pause();
+      currentAudio.current.src = "";
+      currentAudio.current = null;
     }
     setIsPlaying(false);
     setIsTestMode(false);
