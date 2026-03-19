@@ -1,9 +1,11 @@
-const CACHE_NAME = 'hvylyna-cache-v1';
+const CACHE_NAME = 'hvylyna-cache-v3';
 const URLS_TO_CACHE = [
   '/',
   '/manifest.json',
   '/audio/intro.mp3',
   '/audio/metronome.mp3',
+  '/audio/metronome_only.mp3',
+  '/audio/solemn_music.mp3',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png'
 ];

@@ -22,7 +22,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
       introAudio.current = new Audio("/audio/intro.mp3");
       metronomeAudio.current = new Audio("/audio/metronome.mp3");
-      musicAudio.current = new Audio("/audio/national_anthem_short.mp3");
+      musicAudio.current = new Audio("/audio/solemn_music.mp3");
       
       [introAudio, metronomeAudio, musicAudio].forEach(ref => ref.current?.load());
     }
