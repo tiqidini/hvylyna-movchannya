@@ -12,29 +12,14 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const [isTestMode, setIsTestMode] = useState(false);
   const [audioMode, setAudioMode] = useState<AudioMode>("speech_metronome");
 
-  const introAudio = useRef<HTMLAudioElement | null>(null);
-  const metronomeAudio = useRef<HTMLAudioElement | null>(null);
-  const musicAudio = useRef<HTMLAudioElement | null>(null);
+  // Use a single ref for the active audio to prevent overlaps
+  const activeAudio = useRef<HTMLAudioElement | null>(null);
+  const secondaryAudio = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize audio objects
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedMode = localStorage.getItem("hvylyna_audio_mode") as AudioMode;
       if (savedMode) setAudioMode(savedMode);
-
-      // We use different files based on availability
-      introAudio.current = new Audio(`${BASE_PATH}/audio/intro.mp3`);
-      metronomeAudio.current = new Audio(`${BASE_PATH}/audio/metronome.mp3`);
-      // Warning: solemn_music.mp3 was 94 bytes (corrupted), using metronome_only.mp3 as fallback if needed
-      musicAudio.current = new Audio(`${BASE_PATH}/audio/metronome_only.mp3`);
-
-      const allAudio = [introAudio.current, metronomeAudio.current, musicAudio.current];
-      allAudio.forEach(audio => {
-        if (audio) {
-          audio.preload = "auto";
-          audio.load();
-        }
-      });
     }
   }, []);
 
@@ -77,60 +62,53 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   };
 
   const startPlayback = async () => {
+    if (isPlaying) return;
     setIsPlaying(true);
 
     try {
-      // 1. Force unlock all audio by playing and immediately pausing
-      // This is crucial for Safari on iPhone
-      [introAudio.current, metronomeAudio.current, musicAudio.current].forEach(a => {
-        if (a) {
-          a.play().then(() => {
-            a.pause();
-            a.currentTime = 0;
-          }).catch(() => {});
-        }
-      });
-
       if (audioMode === "metronome_only") {
-        if (metronomeAudio.current) {
-          metronomeAudio.current.loop = true;
-          await metronomeAudio.current.play();
-        }
+        const audio = new Audio(`${BASE_PATH}/audio/metronome.mp3`);
+        audio.loop = true;
+        activeAudio.current = audio;
+        await audio.play();
         setTimeout(stopPlayback, 60000);
       } else {
-        // Speech modes
-        if (introAudio.current) {
-          // Logic: First Speech, then Loop
-          introAudio.current.onended = () => {
-            const bgAudio = audioMode === "speech_music" ? musicAudio.current : metronomeAudio.current;
-            if (bgAudio) {
-              bgAudio.loop = true;
-              bgAudio.play().catch(e => console.error("BG play failed", e));
-            }
-            // The whole process lasts 60s from the start of the background sound
-            setTimeout(stopPlayback, 60000);
-          };
-          
-          await introAudio.current.play();
-        } else {
-            // Fallback if intro failed
-            setIsPlaying(false);
-        }
+        // Mode with Voice
+        const intro = new Audio(`${BASE_PATH}/audio/intro.mp3`);
+        activeAudio.current = intro;
+
+        intro.onended = async () => {
+          // Determine next sound
+          const nextFile = audioMode === "speech_music" 
+            ? `${BASE_PATH}/audio/metronome_only.mp3` // Fallback for corrupted music
+            : `${BASE_PATH}/audio/metronome.mp3`;
+            
+          const bg = new Audio(nextFile);
+          bg.loop = true;
+          secondaryAudio.current = bg;
+          await bg.play();
+          setTimeout(stopPlayback, 60000);
+        };
+
+        await intro.play();
       }
     } catch (error) {
       console.error("Playback failed:", error);
-      setTimeout(stopPlayback, 60000);
+      // Ensure we don't get stuck in playing state if audio fails
+      setTimeout(stopPlayback, 5000); 
     }
   };
 
   const stopPlayback = () => {
-    [introAudio, metronomeAudio, musicAudio].forEach(ref => {
-      if (ref.current) {
-        ref.current.pause();
-        ref.current.currentTime = 0;
-        ref.current.onended = null;
-      }
-    });
+    if (activeAudio.current) {
+      activeAudio.current.pause();
+      activeAudio.current.onended = null;
+      activeAudio.current = null;
+    }
+    if (secondaryAudio.current) {
+      secondaryAudio.current.pause();
+      secondaryAudio.current = null;
+    }
     setIsPlaying(false);
     setIsTestMode(false);
   };
