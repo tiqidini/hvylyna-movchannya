@@ -4,29 +4,39 @@ import { useEffect, useRef, useState } from "react";
 
 export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music";
 
+const BASE_PATH = "/hvylyna-movchannya";
+
 export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0) => {
   const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
   const [audioMode, setAudioMode] = useState<AudioMode>("speech_metronome");
-  
+
   const introAudio = useRef<HTMLAudioElement | null>(null);
   const metronomeAudio = useRef<HTMLAudioElement | null>(null);
   const musicAudio = useRef<HTMLAudioElement | null>(null);
 
+  // Initialize audio objects
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // Load preference
       const savedMode = localStorage.getItem("hvylyna_audio_mode") as AudioMode;
       if (savedMode) setAudioMode(savedMode);
 
-      introAudio.current = new Audio("/audio/intro.mp3");
-      metronomeAudio.current = new Audio("/audio/metronome.mp3");
-      musicAudio.current = new Audio("/audio/solemn_music.mp3");
-      
-      [introAudio, metronomeAudio, musicAudio].forEach(ref => ref.current?.load());
+      introAudio.current = new Audio(`${BASE_PATH}/audio/intro.mp3`);
+      metronomeAudio.current = new Audio(`${BASE_PATH}/audio/metronome.mp3`);
+      musicAudio.current = new Audio(`${BASE_PATH}/audio/solemn_music.mp3`);
+
+      const allAudio = [introAudio.current, metronomeAudio.current, musicAudio.current];
+      allAudio.forEach(audio => {
+        if (audio) {
+          audio.preload = "auto";
+          audio.load();
+        }
+      });
     }
-    
+  }, []);
+
+  useEffect(() => {
     const checkTime = () => {
       const now = new Date();
       const target = new Date();
@@ -37,7 +47,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       }
 
       const diff = target.getTime() - now.getTime();
-      
+
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -48,6 +58,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
           .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
       );
 
+      // Trigger at exactly 09:00:00
       if (diff <= 1000 && diff > 0 && !isPlaying && !isTestMode) {
         startPlayback();
       }
@@ -57,7 +68,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     checkTime();
 
     return () => clearInterval(timer);
-  }, [isPlaying, isTestMode, targetHour, targetMinute]);
+  }, [isPlaying, isTestMode, targetHour, targetMinute, audioMode]);
 
   const changeAudioMode = (mode: AudioMode) => {
     setAudioMode(mode);
@@ -66,33 +77,34 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
   const startPlayback = async () => {
     setIsPlaying(true);
-    
+
     try {
+      // Small silent play to unlock audio on iOS if needed
+      // but we expect this to be called from a user interaction (button click)
+      
       if (audioMode === "metronome_only") {
-        await metronomeAudio.current?.play();
-        if (metronomeAudio.current) metronomeAudio.current.loop = true;
+        if (metronomeAudio.current) {
+          metronomeAudio.current.loop = true;
+          await metronomeAudio.current.play();
+        }
         setTimeout(stopPlayback, 60000);
       } else {
-        // Speech modes
-        const playPromise = introAudio.current?.play();
-        if (playPromise) {
-          playPromise.then(() => {
-            introAudio.current!.onended = () => {
-              const bgAudio = audioMode === "speech_music" ? musicAudio.current : metronomeAudio.current;
-              bgAudio?.play().catch(e => console.warn("Background audio blocked", e));
-              if (bgAudio) {
-                bgAudio.loop = true;
-                setTimeout(stopPlayback, 60000);
-              }
-            };
-          }).catch(error => {
-            console.warn("Speech playback blocked, forcing visual mode", error);
-            setTimeout(stopPlayback, 65000);
-          });
+        if (introAudio.current) {
+          introAudio.current.onended = () => {
+            const bgAudio = audioMode === "speech_music" ? musicAudio.current : metronomeAudio.current;
+            if (bgAudio) {
+              bgAudio.loop = true;
+              bgAudio.play().catch(e => console.error("BG play failed", e));
+              setTimeout(stopPlayback, 60000);
+            }
+          };
+          await introAudio.current.play();
         }
       }
     } catch (error) {
       console.error("Playback failed:", error);
+      // In case of total failure, still show the visual state for 60s
+      setTimeout(stopPlayback, 60000);
     }
   };
 
@@ -101,6 +113,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       if (ref.current) {
         ref.current.pause();
         ref.current.currentTime = 0;
+        ref.current.onended = null;
       }
     });
     setIsPlaying(false);
