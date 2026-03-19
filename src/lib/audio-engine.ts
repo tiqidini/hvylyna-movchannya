@@ -17,12 +17,21 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const [isTestMode, setIsTestMode] = useState(false);
   const [audioMode, setAudioMode] = useState<AudioMode>("speech_metronome");
 
-  const currentAudio = useRef<HTMLAudioElement | null>(null);
+  const introAudio = useRef<HTMLAudioElement | null>(null);
+  const metronomeAudio = useRef<HTMLAudioElement | null>(null);
+  const musicAudio = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedMode = localStorage.getItem("hvylyna_audio_mode") as AudioMode;
       if (savedMode) setAudioMode(savedMode);
+
+      introAudio.current = new Audio(getAudioPath("intro.mp3"));
+      metronomeAudio.current = new Audio(getAudioPath("metronome.mp3"));
+      // We have metronome_only.mp3 for speech_music background but let's stick to the names
+      musicAudio.current = new Audio(getAudioPath("metronome_only.mp3"));
+      
+      [introAudio, metronomeAudio, musicAudio].forEach(ref => ref.current?.load());
     }
   }, []);
 
@@ -55,68 +64,53 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     const timer = setInterval(checkTime, 1000);
     checkTime();
     return () => clearInterval(timer);
-  }, [isPlaying, isTestMode, targetHour, targetMinute, audioMode]);
+  }, [isPlaying, isTestMode, targetHour, targetMinute]); // Intentionally removed audioMode from dependencies to prevent unintended restarts
 
   const changeAudioMode = (mode: AudioMode) => {
     setAudioMode(mode);
     localStorage.setItem("hvylyna_audio_mode", mode);
   };
 
-  const playFile = (filename: string, loop: boolean = false): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const audio = new Audio(getAudioPath(filename));
-      audio.loop = loop;
-      currentAudio.current = audio;
-
-      audio.play()
-        .then(() => {
-          if (loop) {
-            resolve(); // If looping, we consider it "started"
-          } else {
-            audio.onended = () => resolve();
-          }
-        })
-        .catch(err => {
-          console.error(`Error playing ${filename}:`, err);
-          reject(err);
-        });
-    });
-  };
-
   const startPlayback = async () => {
     if (isPlaying) return;
     setIsPlaying(true);
-
+    
     try {
       if (audioMode === "metronome_only") {
-        await playFile("metronome.mp3", true);
+        await metronomeAudio.current?.play();
+        if (metronomeAudio.current) metronomeAudio.current.loop = true;
         setTimeout(stopPlayback, 60000);
       } else {
-        // Voice + something
-        try {
-          // Play Voice FIRST and WAIT for it to end
-          await playFile("intro.mp3", false);
-        } catch (e) {
-          console.warn("Voice failed, skipping to background", e);
+        // Speech modes
+        const playPromise = introAudio.current?.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            introAudio.current!.onended = () => {
+              const bgAudio = audioMode === "speech_music" ? musicAudio.current : metronomeAudio.current;
+              bgAudio?.play().catch(e => console.warn("Background audio blocked", e));
+              if (bgAudio) {
+                bgAudio.loop = true;
+                setTimeout(stopPlayback, 60000);
+              }
+            };
+          }).catch(error => {
+            console.warn("Speech playback blocked, forcing visual mode", error);
+            setTimeout(stopPlayback, 65000);
+          });
         }
-
-        // Only after voice ends (or fails), play background
-        const bgFile = audioMode === "speech_music" ? "metronome_only.mp3" : "metronome.mp3";
-        await playFile(bgFile, true);
-        setTimeout(stopPlayback, 60000);
       }
     } catch (error) {
-      console.error("Critical playback error:", error);
-      stopPlayback();
+      console.error("Playback failed:", error);
     }
   };
 
   const stopPlayback = () => {
-    if (currentAudio.current) {
-      currentAudio.current.pause();
-      currentAudio.current.src = "";
-      currentAudio.current = null;
-    }
+    [introAudio, metronomeAudio, musicAudio].forEach(ref => {
+      if (ref.current) {
+        ref.current.pause();
+        ref.current.currentTime = 0;
+      }
+    });
     setIsPlaying(false);
     setIsTestMode(false);
   };
