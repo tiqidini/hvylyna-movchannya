@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music";
 
-// Helper to get absolute path for GitHub Pages or Local Dev
+// Helper to get path for audio assets
 const getAudioPath = (filename: string) => {
   if (typeof window === "undefined") return "";
-  const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  const prefix = isDev ? "" : "/hvylyna-movchannya";
-  return `${prefix}/audio/${filename}`;
+  // Using relative path without leading slash makes it robust to basePath settings
+  return `audio/${filename}`;
 };
 
 export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0) => {

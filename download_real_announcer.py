@@ -1,8 +1,8 @@
 import requests
 import os
 
-# MicUA - Reliable source with voice and metronome
-url = "https://micua.com.ua/wp-content/uploads/2024/03/khvylyna-movchannya-z-golosom.mp3"
+# Ukr.radio (Official media broadcaster) - Correct voice track
+url = "https://ukr.radio/images/audio/khvylyna_movchannya_suspilne.mp3"
 output_path = "public/audio/intro.mp3"
 
 try:
