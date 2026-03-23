@@ -1,8 +1,8 @@
 import requests
 import os
 
-# Radio BG (Grinchenko University) - Verified official audio
-url = "https://radio.kubg.edu.ua/wp-content/uploads/2022/03/khvylyna-movchannya.mp3"
+# MicUA - Reliable source with voice and metronome
+url = "https://micua.com.ua/wp-content/uploads/2024/03/khvylyna-movchannya-z-golosom.mp3"
 output_path = "public/audio/intro.mp3"
 
 try:
