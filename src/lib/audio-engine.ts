@@ -6,9 +6,7 @@ export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music";
 
 // Helper to get absolute path for GitHub Pages
 const getAudioPath = (filename: string) => {
-  if (typeof window === "undefined") return "";
-  const origin = window.location.origin;
-  return `${origin}/hvylyna-movchannya/audio/${filename}`;
+  return `/hvylyna-movchannya/audio/${filename}`;
 };
 
 export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0) => {
@@ -20,6 +18,10 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const introAudio = useRef<HTMLAudioElement | null>(null);
   const metronomeAudio = useRef<HTMLAudioElement | null>(null);
   const musicAudio = useRef<HTMLAudioElement | null>(null);
+  
+  // Audio state tracking
+  const audioModeRef = useRef(audioMode);
+  useEffect(() => { audioModeRef.current = audioMode; }, [audioMode]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -28,10 +30,26 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
       introAudio.current = new Audio(getAudioPath("intro.mp3"));
       metronomeAudio.current = new Audio(getAudioPath("metronome.mp3"));
-      // We have metronome_only.mp3 for speech_music background but let's stick to the names
       musicAudio.current = new Audio(getAudioPath("metronome_only.mp3"));
-      
-      [introAudio, metronomeAudio, musicAudio].forEach(ref => ref.current?.load());
+
+      // Setup transition handlers once
+      introAudio.current.onended = () => {
+        const mode = audioModeRef.current;
+        const bgAudio = mode === "speech_music" ? musicAudio.current : metronomeAudio.current;
+        if (bgAudio) {
+          bgAudio.loop = true;
+          bgAudio.play().catch(e => console.warn("Background audio blocked", e));
+        }
+        // Background runs for 60 seconds
+        setTimeout(() => stopPlayback(), 60000);
+      };
+
+      [introAudio, metronomeAudio, musicAudio].forEach(ref => {
+        if (ref.current) {
+          ref.current.load();
+          ref.current.preload = "auto";
+        }
+      });
     }
   }, []);
 
@@ -64,7 +82,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     const timer = setInterval(checkTime, 1000);
     checkTime();
     return () => clearInterval(timer);
-  }, [isPlaying, isTestMode, targetHour, targetMinute]); // Intentionally removed audioMode from dependencies to prevent unintended restarts
+  }, [isPlaying, isTestMode, targetHour, targetMinute]);
 
   const changeAudioMode = (mode: AudioMode) => {
     setAudioMode(mode);
@@ -77,30 +95,22 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     
     try {
       if (audioMode === "metronome_only") {
-        await metronomeAudio.current?.play();
-        if (metronomeAudio.current) metronomeAudio.current.loop = true;
+        if (metronomeAudio.current) {
+          metronomeAudio.current.loop = true;
+          await metronomeAudio.current.play();
+        }
         setTimeout(stopPlayback, 60000);
       } else {
-        // Speech modes
-        const playPromise = introAudio.current?.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            introAudio.current!.onended = () => {
-              const bgAudio = audioMode === "speech_music" ? musicAudio.current : metronomeAudio.current;
-              bgAudio?.play().catch(e => console.warn("Background audio blocked", e));
-              if (bgAudio) {
-                bgAudio.loop = true;
-                setTimeout(stopPlayback, 60000);
-              }
-            };
-          }).catch(error => {
-            console.warn("Speech playback blocked, forcing visual mode", error);
-            setTimeout(stopPlayback, 65000);
-          });
+        // Speech modes - always start with intro
+        if (introAudio.current) {
+          introAudio.current.currentTime = 0;
+          await introAudio.current.play();
         }
       }
     } catch (error) {
       console.error("Playback failed:", error);
+      // Fallback for UI if audio fails
+      setTimeout(stopPlayback, 60000);
     }
   };
 
