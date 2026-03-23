@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from "react";
 
 export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music";
 
-// Helper to get absolute path for GitHub Pages
+// Helper to get absolute path for GitHub Pages or Local Dev
 const getAudioPath = (filename: string) => {
-  return `/hvylyna-movchannya/audio/${filename}`;
+  if (typeof window === "undefined") return "";
+  const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const prefix = isDev ? "" : "/hvylyna-movchannya";
+  return `${prefix}/audio/${filename}`;
 };
 
 export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0) => {
@@ -28,13 +31,20 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       const savedMode = localStorage.getItem("hvylyna_audio_mode") as AudioMode;
       if (savedMode) setAudioMode(savedMode);
 
-      introAudio.current = new Audio(getAudioPath("intro.mp3"));
-      metronomeAudio.current = new Audio(getAudioPath("metronome.mp3"));
-      musicAudio.current = new Audio(getAudioPath("metronome_only.mp3"));
+      const introPath = getAudioPath("intro.mp3");
+      const metronomePath = getAudioPath("metronome.mp3");
+      const musicPath = getAudioPath("metronome_only.mp3"); // Using this as solemn music if solemn_music.mp3 is placeholder
+
+      console.log("Audio Paths:", { introPath, metronomePath, musicPath });
+
+      introAudio.current = new Audio(introPath);
+      metronomeAudio.current = new Audio(metronomePath);
+      musicAudio.current = new Audio(musicPath);
 
       // Setup transition handlers once
       introAudio.current.onended = () => {
         const mode = audioModeRef.current;
+        console.log("Intro ended, starting background mode:", mode);
         const bgAudio = mode === "speech_music" ? musicAudio.current : metronomeAudio.current;
         if (bgAudio) {
           bgAudio.loop = true;
@@ -96,6 +106,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     try {
       if (audioMode === "metronome_only") {
         if (metronomeAudio.current) {
+          console.log("Starting metronome only...");
           metronomeAudio.current.loop = true;
           await metronomeAudio.current.play();
         }
@@ -103,6 +114,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       } else {
         // Speech modes - always start with intro
         if (introAudio.current) {
+          console.log("Starting intro speech...");
           introAudio.current.currentTime = 0;
           await introAudio.current.play();
         }
@@ -115,6 +127,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   };
 
   const stopPlayback = () => {
+    console.log("Stopping playback...");
     [introAudio, metronomeAudio, musicAudio].forEach(ref => {
       if (ref.current) {
         ref.current.pause();
