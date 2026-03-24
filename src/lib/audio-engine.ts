@@ -70,7 +70,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   // Sync intro variant to audio object
   useEffect(() => {
     if (typeof window !== "undefined" && introAudio.current) {
-      const filename = introVariant === "standard" ? "intro.mp3" : "intro_alt.mp3";
+      const filename = introVariant === "standard" ? "intro.mp3" : "intro_alt.m4a";
       introAudio.current.src = getAudioPath(filename);
       introAudio.current.load();
     }

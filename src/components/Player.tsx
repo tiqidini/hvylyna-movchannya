@@ -88,7 +88,7 @@ export default function Player() {
                 }`}
               >
                 <div className="font-black text-sm">{variant.label}</div>
-                <div className="text-[9px] opacity-40 mt-1 font-medium">{variant.id === "standard" ? "3.9 MB" : "1.5 MB"}</div>
+                <div className="text-[9px] opacity-40 mt-1 font-medium">{variant.id === "standard" ? "3.9 MB" : "982 KB"}</div>
               </button>
             ))}
           </div>
