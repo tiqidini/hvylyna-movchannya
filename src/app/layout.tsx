@@ -14,7 +14,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Хвилина Мовчання",
   description: "Загальнонаціональна хвилина мовчання о 9:00",
-  manifest: "/manifest.json",
+  manifest: "/hvylyna-movchannya/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -36,7 +36,7 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js');
+                  navigator.serviceWorker.register('/hvylyna-movchannya/sw.js');
                 });
               }
             `,
