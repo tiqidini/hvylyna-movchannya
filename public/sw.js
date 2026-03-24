@@ -1,13 +1,14 @@
 const CACHE_NAME = 'hvylyna-cache-v3';
 const URLS_TO_CACHE = [
-  '/',
-  '/manifest.json',
-  '/audio/intro.mp3',
-  '/audio/metronome.mp3',
-  '/audio/metronome_only.mp3',
-  '/audio/solemn_music.mp3',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/hvylyna-movchannya/',
+  '/hvylyna-movchannya/manifest.json',
+  '/hvylyna-movchannya/audio/intro.mp3',
+  '/hvylyna-movchannya/audio/intro_alt.mp3',
+  '/hvylyna-movchannya/audio/metronome.mp3',
+  '/hvylyna-movchannya/audio/metronome_only.mp3',
+  '/hvylyna-movchannya/audio/solemn_music.mp3',
+  '/hvylyna-movchannya/icons/icon-192x192.png',
+  '/hvylyna-movchannya/icons/icon-512x512.png'
 ];
 
 self.addEventListener('install', (event) => {

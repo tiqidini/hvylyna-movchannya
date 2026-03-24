@@ -1,6 +1,6 @@
 "use client";
 
-import { useAudioEngine, AudioMode } from "@/lib/audio-engine";
+import { useAudioEngine, AudioMode, IntroVariant } from "@/lib/audio-engine";
 import { useState, useEffect } from "react";
 
 const MODES: { id: AudioMode; label: string; desc: string }[] = [
@@ -9,8 +9,21 @@ const MODES: { id: AudioMode; label: string; desc: string }[] = [
   { id: "speech_music", label: "Голос + Музика", desc: "Голосове оголошення та урочиста мелодія" },
 ];
 
+const INTRO_VARIANTS: { id: IntroVariant; label: string; desc: string }[] = [
+  { id: "standard", label: "Варіант №1", desc: "Класичне оголошення (офіційне)" },
+  { id: "alternative", label: "Варіант №2", desc: "Чистий голос (Українське Радіо)" },
+];
+
 export default function Player() {
-  const { timeLeft, isPlaying, toggleTestMode, audioMode, changeAudioMode } = useAudioEngine(9, 0);
+  const { 
+    timeLeft, 
+    isPlaying, 
+    toggleTestMode, 
+    audioMode, 
+    changeAudioMode,
+    introVariant,
+    changeIntroVariant
+  } = useAudioEngine(9, 0);
   const [mounted, setMounted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -49,10 +62,7 @@ export default function Player() {
             {MODES.map((mode) => (
               <button
                 key={mode.id}
-                onClick={() => {
-                  changeAudioMode(mode.id);
-                  setShowSettings(false);
-                }}
+                onClick={() => changeAudioMode(mode.id)}
                 className={`w-full p-6 rounded-[2rem] border transition-all active:scale-[0.97] ${
                   audioMode === mode.id
                     ? "bg-white/10 border-white/20 text-white shadow-2xl"
@@ -61,6 +71,24 @@ export default function Player() {
               >
                 <div className="font-black text-lg">{mode.label}</div>
                 <div className="text-xs opacity-50 mt-1.5 leading-relaxed font-medium">{mode.desc}</div>
+              </button>
+            ))}
+          </div>
+
+          <h2 className="text-xl font-black text-white mt-12 mb-6 tracking-tight text-center">Голос диктора</h2>
+          <div className="grid grid-cols-2 gap-4">
+            {INTRO_VARIANTS.map((variant) => (
+              <button
+                key={variant.id}
+                onClick={() => changeIntroVariant(variant.id)}
+                className={`p-4 rounded-[1.5rem] border transition-all active:scale-[0.97] ${
+                  introVariant === variant.id
+                    ? "bg-blue-600/20 border-blue-500/40 text-blue-400"
+                    : "border-white/5 text-white/20 hover:bg-white/5"
+                }`}
+              >
+                <div className="font-black text-sm">{variant.label}</div>
+                <div className="text-[9px] opacity-40 mt-1 font-medium">{variant.id === "standard" ? "3.9 MB" : "1.5 MB"}</div>
               </button>
             ))}
           </div>

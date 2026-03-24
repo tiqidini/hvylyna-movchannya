@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music";
+export type IntroVariant = "standard" | "alternative";
 
 // Helper to get path for audio assets
 const getAudioPath = (filename: string) => {
@@ -16,6 +17,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
   const [audioMode, setAudioMode] = useState<AudioMode>("speech_metronome");
+  const [introVariant, setIntroVariant] = useState<IntroVariant>("standard");
 
   const introAudio = useRef<HTMLAudioElement | null>(null);
   const metronomeAudio = useRef<HTMLAudioElement | null>(null);
@@ -29,6 +31,9 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     if (typeof window !== "undefined") {
       const savedMode = localStorage.getItem("hvylyna_audio_mode") as AudioMode;
       if (savedMode) setAudioMode(savedMode);
+
+      const savedVariant = localStorage.getItem("hvylyna_intro_variant") as IntroVariant;
+      if (savedVariant) setIntroVariant(savedVariant);
 
       const introPath = getAudioPath("intro.mp3");
       const metronomePath = getAudioPath("metronome.mp3");
@@ -61,6 +66,15 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       });
     }
   }, []);
+
+  // Sync intro variant to audio object
+  useEffect(() => {
+    if (typeof window !== "undefined" && introAudio.current) {
+      const filename = introVariant === "standard" ? "intro.mp3" : "intro_alt.mp3";
+      introAudio.current.src = getAudioPath(filename);
+      introAudio.current.load();
+    }
+  }, [introVariant]);
 
   useEffect(() => {
     const checkTime = () => {
@@ -96,6 +110,11 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const changeAudioMode = (mode: AudioMode) => {
     setAudioMode(mode);
     localStorage.setItem("hvylyna_audio_mode", mode);
+  };
+
+  const changeIntroVariant = (variant: IntroVariant) => {
+    setIntroVariant(variant);
+    localStorage.setItem("hvylyna_intro_variant", variant);
   };
 
   const startPlayback = async () => {
@@ -146,5 +165,15 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     }
   };
 
-  return { timeLeft, isPlaying, isTestMode, toggleTestMode, stopPlayback, audioMode, changeAudioMode };
+  return { 
+    timeLeft, 
+    isPlaying, 
+    isTestMode, 
+    toggleTestMode, 
+    stopPlayback, 
+    audioMode, 
+    changeAudioMode,
+    introVariant,
+    changeIntroVariant
+  };
 };
