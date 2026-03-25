@@ -27,7 +27,8 @@ export default function Player() {
     audioMode, 
     changeAudioMode,
     introVariant,
-    changeIntroVariant
+    changeIntroVariant,
+    unlockAudio
   } = useAudioEngine(9, 0);
   const [mounted, setMounted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -45,7 +46,10 @@ export default function Player() {
   );
 
   return (
-    <div className="flex flex-col items-center justify-between w-full h-[100dvh] max-w-lg mx-auto p-6 xs:p-8 bg-black overflow-hidden select-none">
+    <div 
+      onClick={() => unlockAudio()}
+      className="flex flex-col items-center justify-between w-full h-[100dvh] max-w-lg mx-auto p-6 xs:p-8 bg-black overflow-hidden select-none"
+    >
       
       {/* Top Header Row - Fixed height to avoid jumps */}
       <div className="w-full flex justify-end items-center h-16 shrink-0">

@@ -28,6 +28,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const metronomeAudio = useRef<HTMLAudioElement | null>(null);
   const musicAudio = useRef<HTMLAudioElement | null>(null);
   const lastTriggerDate = useRef<string>("");
+  const isUnlocked = useRef(false);
   
   // Audio state tracking
   const audioModeRef = useRef(audioMode);
@@ -210,7 +211,37 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     setIsPlaying(false);
   };
 
-  const toggleTestMode = () => {
+  const unlockAudio = async () => {
+    if (isUnlocked.current) return;
+    console.log("Attempting to unlock audio for iOS...");
+    
+    const prime = async (audio: HTMLAudioElement | null) => {
+      if (!audio) return;
+      try {
+        // Play silent or low volume to unlock
+        const originalVolume = audio.volume;
+        audio.volume = 0;
+        await audio.play();
+        audio.pause();
+        audio.volume = originalVolume;
+        console.log("Audio object unlocked:", audio.src.split('/').pop());
+      } catch (e) {
+        console.error("Unlock failed for audio object:", e);
+      }
+    };
+
+    await Promise.all([
+      prime(introAudio.current),
+      prime(metronomeAudio.current),
+      prime(musicAudio.current)
+    ]);
+    
+    isUnlocked.current = true;
+    console.log("Audio system unlocked for this session.");
+  };
+
+  const toggleTestMode = async () => {
+    await unlockAudio();
     if (isPlaying) {
       stopPlayback();
     } else {
@@ -243,6 +274,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     setTestTimer,
     toggleTestTimer,
     toggleTestMode, 
+    unlockAudio,
     stopPlayback, 
     audioMode, 
     changeAudioMode,

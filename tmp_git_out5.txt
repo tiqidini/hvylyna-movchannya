@@ -1,0 +1,7 @@
+warning: in the working copy of 'public/sw.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp_git_out4.txt', LF will be replaced by CRLF the next time Git touches it
+[main c386f24] Force SW update and immediate activation
+ 3 files changed, 22 insertions(+), 12 deletions(-)
+ create mode 100644 tmp_git_out5.txt
+To https://github.com/tiqidini/hvylyna-movchannya.git
+   48dc215..c386f24  main -> main
