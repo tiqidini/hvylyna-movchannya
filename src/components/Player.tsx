@@ -61,8 +61,8 @@ export default function Player() {
       </div>
 
       {showSettings && !isPlaying ? (
-        <div className="w-full flex-grow flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 px-2">
-          <h2 className="text-2xl xs:text-3xl font-black text-white mb-10 tracking-tight text-center">Звуковий супровід</h2>        
+        <div className="w-full flex-grow overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-500 px-2 pb-6 flex flex-col">
+          <div className="flex flex-col justify-center min-h-full w-full py-4">          <h2 className="text-2xl xs:text-3xl font-black text-white mb-10 tracking-tight text-center">Звуковий супровід</h2>        
           <div className="space-y-4 text-left">
             {MODES.map((mode) => (
               <button
@@ -146,6 +146,7 @@ export default function Player() {
           >
             Закрити меню
           </button>
+          </div>
         </div>
       ) : (
         <>

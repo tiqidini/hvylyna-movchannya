@@ -1,0 +1,7 @@
+warning: in the working copy of 'public/sw.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp_git_out.txt', LF will be replaced by CRLF the next time Git touches it
+[main de03da1] Fix PWA cache invalidation logic
+ 3 files changed, 21 insertions(+), 1 deletion(-)
+ create mode 100644 tmp_git_out2.txt
+To https://github.com/tiqidini/hvylyna-movchannya.git
+   86f02dc..de03da1  main -> main
