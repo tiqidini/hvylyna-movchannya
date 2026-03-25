@@ -18,6 +18,11 @@ export default function Player() {
   const { 
     timeLeft, 
     isPlaying, 
+    isTestTimerEnabled,
+    testHour,
+    testMinute,
+    setTestTimer,
+    toggleTestTimer,
     toggleTestMode, 
     audioMode, 
     changeAudioMode,
@@ -92,6 +97,49 @@ export default function Player() {
               </button>
             ))}
           </div>
+
+          <div className="mt-12 p-6 rounded-[2rem] bg-white/5 border border-white/10">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-black text-white">Тестовий режим</h3>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest font-bold mt-1">Для перевірки спрацювання</p>
+              </div>
+              <button 
+                onClick={() => toggleTestTimer(!isTestTimerEnabled)}
+                className={`w-14 h-8 rounded-full transition-all duration-300 relative ${isTestTimerEnabled ? 'bg-blue-600' : 'bg-white/10'}`}
+              >
+                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all duration-300 ${isTestTimerEnabled ? 'left-7' : 'left-1'}`}></div>
+              </button>
+            </div>
+            
+            {isTestTimerEnabled && (
+              <div className="flex items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-300">
+                <div className="flex-grow grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-[9px] uppercase tracking-[0.2em] text-white/20 font-black ml-2">Година</label>
+                    <input 
+                      type="number" 
+                      min="0" max="23" 
+                      value={testHour} 
+                      onChange={(e) => setTestTimer(parseInt(e.target.value) || 0, testMinute)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-mono font-bold text-center outline-none focus:border-blue-500/50 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] uppercase tracking-[0.2em] text-white/20 font-black ml-2">Хвилина</label>
+                    <input 
+                      type="number" 
+                      min="0" max="59" 
+                      value={testMinute} 
+                      onChange={(e) => setTestTimer(testHour, parseInt(e.target.value) || 0)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-mono font-bold text-center outline-none focus:border-blue-500/50 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setShowSettings(false)}
             className="mt-14 text-white/20 hover:text-white/50 text-[10px] font-black uppercase tracking-[0.4em] active:scale-95 transition-all p-4 text-center"
@@ -150,7 +198,7 @@ export default function Player() {
                   </span>
                 </div>
                 <p className="text-white/10 text-[9px] font-black uppercase tracking-[0.4em] mt-2">
-                  Автоматично о 9:00
+                  {isTestTimerEnabled ? `Тест о ${testHour.toString().padStart(2, '0')}:${testMinute.toString().padStart(2, '0')}` : "Автоматично о 9:00"}
                 </p>
               </div>
             )}
