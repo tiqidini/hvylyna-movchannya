@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hvylyna-cache-v3';
+const CACHE_NAME = 'hvylyna-cache-v4';
 const URLS_TO_CACHE = [
   '/hvylyna-movchannya/',
   '/hvylyna-movchannya/manifest.json',
@@ -15,6 +15,21 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(URLS_TO_CACHE))
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
   );
 });
 
