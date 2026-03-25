@@ -36,6 +36,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
-      .then((response) => response || fetch(event.request))
+      .then((cacheResponse) => {
+        return cacheResponse || fetch(event.request).catch(() => {
+          // If both cache and network fail, return a basic error or just let it fail
+          console.warn('Fetch failed for:', event.request.url);
+        });
+      })
   );
 });

@@ -1,0 +1,7 @@
+warning: in the working copy of 'src/components/Player.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp_git_out2.txt', LF will be replaced by CRLF the next time Git touches it
+[main 4625dc4] Fix settings menu scroll issue
+ 3 files changed, 10 insertions(+), 2 deletions(-)
+ create mode 100644 tmp_git_out3.txt
+To https://github.com/tiqidini/hvylyna-movchannya.git
+   de03da1..4625dc4  main -> main
