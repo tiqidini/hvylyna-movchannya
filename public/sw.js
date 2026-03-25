@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hvylyna-cache-v4';
+const CACHE_NAME = 'hvylyna-cache-v6';
 const URLS_TO_CACHE = [
   '/hvylyna-movchannya/',
   '/hvylyna-movchannya/manifest.json',
@@ -12,6 +12,7 @@ const URLS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(URLS_TO_CACHE))
@@ -20,16 +21,19 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              console.log('Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ])
   );
 });
 
@@ -38,7 +42,6 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request)
       .then((cacheResponse) => {
         return cacheResponse || fetch(event.request).catch(() => {
-          // If both cache and network fail, return a basic error or just let it fail
           console.warn('Fetch failed for:', event.request.url);
         });
       })

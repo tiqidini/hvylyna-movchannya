@@ -1,0 +1,7 @@
+warning: in the working copy of 'public/sw.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp_git_out3.txt', LF will be replaced by CRLF the next time Git touches it
+[main 48dc215] Final SW polish and documentation update
+ 3 files changed, 13 insertions(+), 1 deletion(-)
+ create mode 100644 tmp_git_out4.txt
+To https://github.com/tiqidini/hvylyna-movchannya.git
+   4625dc4..48dc215  main -> main
