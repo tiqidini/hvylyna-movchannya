@@ -8,8 +8,15 @@ export type IntroVariant = "standard" | "alternative";
 // Helper to get path for audio assets
 const getAudioPath = (filename: string) => {
   if (typeof window === "undefined") return "";
-  // Using relative path without leading slash makes it robust to basePath settings
   return `audio/${filename}`;
+};
+
+const logToStorage = (message: string) => {
+  if (typeof window === "undefined") return;
+  const logs = JSON.parse(localStorage.getItem("hvylyna_logs") || "[]");
+  const entry = `${new Date().toLocaleTimeString('uk-UA')}: ${message}`;
+  logs.unshift(entry);
+  localStorage.setItem("hvylyna_logs", JSON.stringify(logs.slice(0, 50)));
 };
 
 export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0) => {
@@ -23,6 +30,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const [testHour, setTestHour] = useState(9);
   const [testMinute, setTestMinute] = useState(1);
   const [hasTriggeredToday, setHasTriggeredToday] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
 
   const introAudio = useRef<HTMLAudioElement | null>(null);
   const metronomeAudio = useRef<HTMLAudioElement | null>(null);
@@ -30,6 +38,8 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const lastTriggerDate = useRef<string>("");
   const isUnlocked = useRef(false);
   const audioCtx = useRef<AudioContext | null>(null);
+  const worker = useRef<Worker | null>(null);
+  const silentPlayer = useRef<HTMLAudioElement | null>(null);
   
   // Audio state tracking
   const audioModeRef = useRef(audioMode);
@@ -75,12 +85,22 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         setTimeout(() => stopPlayback(), 60000);
       };
 
+      // Initialize silent player
+      const silentMp3 = "data:audio/mpeg;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAZGFzaABUWFhYAAAAEgAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzbzZtcDQxAFRTU0UAAAAPAAADTGF2ZjYwLjMuMTAwAAAAAAAAAAAAAAD/80MUAAAAAAAAAAAAAAAAAAAAAABYaW5nAAAADwAAAAQAAAI8ABwcHBwcHBwcKCgoKCgoKCgxMTMTExMTExM6Ojo6Ojo6OjxMTExMTExMTE9PT09PT09PT1RUVFRUVFRUVFhYWFhYWFhYWDY2NjY2NjY2Njw8PDw8PDw8PEFBQUFBQUFBQUVFRUVFRUVFRUlJS0pKSkpKSkoAAAAAAAAAAAAAAAAAAAAAAAD/80MUAAsAAA0AAAAAAf88Bv88Bv6f0/p/T00000000000000000000000000000000000/80MUAAsAAA0AAAAAAf88Bv8+AAAAAAAFf9P6f09NNDQ0NDQ0NDQ0NDQ0NDQ0NDQwMCsrKysrKyv/80MUAAsAAA0AAAAAAf88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv";
+      silentPlayer.current = new Audio(silentMp3);
+      silentPlayer.current.loop = true;
+
       [introAudio, metronomeAudio, musicAudio].forEach(ref => {
         if (ref.current) {
           ref.current.load();
           ref.current.preload = "auto";
         }
       });
+
+      // Load initial logs
+      const savedLogs = JSON.parse(localStorage.getItem("hvylyna_logs") || "[]");
+      setLogs(savedLogs);
+      logToStorage("App initialized");
     }
   }, []);
 
@@ -158,21 +178,47 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         startPlayback();
       }
     };
+    const checkTimeWrapper = () => {
+      // logToStorage("Tick received from worker");
+      checkTime();
+      // Sync logs state periodically
+      if (Math.random() > 0.95) {
+         setLogs(JSON.parse(localStorage.getItem("hvylyna_logs") || "[]"));
+      }
+    };
 
-    const timer = setInterval(checkTime, 1000);
+    // Initialize Web Worker Timer
+    try {
+      if (typeof window !== "undefined" && !worker.current) {
+        worker.current = new Worker(new URL('/hvylyna-movchannya/timer-worker.js', window.location.origin));
+        worker.current.onmessage = (e) => {
+          if (e.data === 'tick') checkTimeWrapper();
+        };
+        worker.current.postMessage('start');
+        logToStorage("Web Worker timer started");
+      }
+    } catch (e) {
+      console.error("Worker failed, falling back to setInterval", e);
+      logToStorage("Worker failed, fallback active");
+      const timer = setInterval(checkTimeWrapper, 1000);
+      return () => clearInterval(timer);
+    }
+
     checkTime();
 
     // Re-check immediately when app returns to foreground
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         console.log("App visible, performing immediate time check...");
+        logToStorage("App visible, resyncing");
         checkTime();
+        setLogs(JSON.parse(localStorage.getItem("hvylyna_logs") || "[]"));
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      clearInterval(timer);
+      if (worker.current) worker.current.postMessage('stop');
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isPlaying, isTestTimerEnabled, targetHour, targetMinute, testHour, testMinute]);
@@ -263,9 +309,17 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         silence.connect(audioCtx.current.destination);
         silence.start();
         console.log("Silent heartbeat started via AudioContext");
+        logToStorage("AudioContext Heartbeat started");
+      }
+      
+      if (silentPlayer.current) {
+        await silentPlayer.current.play();
+        console.log("Silent MP3 loop started");
+        logToStorage("Silent MP3 Heartbeat started");
       }
     } catch (e) {
       console.error("Failed to start silent heartbeat:", e);
+      logToStorage("Heartbeat failure: " + e);
     }
   };
 
@@ -308,6 +362,11 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     audioMode, 
     changeAudioMode,
     introVariant,
-    changeIntroVariant
+    changeIntroVariant,
+    logs,
+    clearLogs: () => {
+      localStorage.removeItem("hvylyna_logs");
+      setLogs([]);
+    }
   };
 };

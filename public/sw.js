@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hvylyna-cache-v8';
+const CACHE_NAME = 'hvylyna-cache-v9';
 const URLS_TO_CACHE = [
   '/hvylyna-movchannya/',
   '/hvylyna-movchannya/manifest.json',

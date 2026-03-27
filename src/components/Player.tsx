@@ -28,7 +28,9 @@ export default function Player() {
     changeAudioMode,
     introVariant,
     changeIntroVariant,
-    unlockAudio
+    unlockAudio,
+    logs,
+    clearLogs
   } = useAudioEngine(9, 0);
   const [mounted, setMounted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -145,6 +147,26 @@ export default function Player() {
                 </div>
               </div>
             )}
+
+            {/* Logs Section */}
+            <div className="bg-white/5 rounded-3xl p-6 border border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-zinc-400 font-medium uppercase tracking-wider text-sm">Логи роботи (debug)</h3>
+                <button 
+                  onClick={clearLogs}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Очистити
+                </button>
+              </div>
+              <div className="max-h-40 overflow-y-auto font-mono text-[10px] text-zinc-500 space-y-1 bg-black/30 rounded-xl p-3 border border-white/5">
+                {logs.length > 0 ? (
+                  logs.map((log, i) => <div key={i}>{log}</div>)
+                ) : (
+                  <div className="italic">Логи порожні. Спробуй щось натиснути...</div>
+                )}
+              </div>
+            </div>
           </div>
 
           <button

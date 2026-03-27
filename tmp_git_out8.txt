@@ -1,0 +1,9 @@
+warning: in the working copy of 'final_commit_log.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'public/sw.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Player.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/audio-engine.ts', LF will be replaced by CRLF the next time Git touches it
+[main 2e4f7ac] Fix background execution: Silent audio pulse and visibility sync
+ 5 files changed, 40 insertions(+), 2 deletions(-)
+ create mode 100644 tmp_git_out8.txt
+To https://github.com/tiqidini/hvylyna-movchannya.git
+   46a2b34..2e4f7ac  main -> main
