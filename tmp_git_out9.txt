@@ -1,0 +1,11 @@
+warning: in the working copy of 'public/sw.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Player.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/audio-engine.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp_git_out8.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'public/timer-worker.js', LF will be replaced by CRLF the next time Git touches it
+[main 26cb4aa] Advanced background execution: Worker timer, real MP3 heartbeat, and log viewer
+ 6 files changed, 109 insertions(+), 6 deletions(-)
+ create mode 100644 public/timer-worker.js
+ create mode 100644 tmp_git_out9.txt
+To https://github.com/tiqidini/hvylyna-movchannya.git
+   2e4f7ac..26cb4aa  main -> main

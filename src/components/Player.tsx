@@ -151,7 +151,15 @@ export default function Player() {
             {/* Logs Section */}
             <div className="bg-white/5 rounded-3xl p-6 border border-white/10">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-zinc-400 font-medium uppercase tracking-wider text-sm">Логи роботи (debug)</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-zinc-400 font-medium uppercase tracking-wider text-sm">Логи роботи</h3>
+                  {logs.length > 0 && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-[10px] text-green-500 font-bold uppercase tracking-tight">Active</span>
+                    </div>
+                  )}
+                </div>
                 <button 
                   onClick={clearLogs}
                   className="text-xs text-blue-400 hover:text-blue-300 transition-colors"

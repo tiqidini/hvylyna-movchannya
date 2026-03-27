@@ -40,6 +40,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const audioCtx = useRef<AudioContext | null>(null);
   const worker = useRef<Worker | null>(null);
   const silentPlayer = useRef<HTMLAudioElement | null>(null);
+  const lastWorkerLogRef = useRef<number>(0);
   
   // Audio state tracking
   const audioModeRef = useRef(audioMode);
@@ -85,10 +86,11 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         setTimeout(() => stopPlayback(), 60000);
       };
 
-      // Initialize silent player
-      const silentMp3 = "data:audio/mpeg;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAZGFzaABUWFhYAAAAEgAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzbzZtcDQxAFRTU0UAAAAPAAADTGF2ZjYwLjMuMTAwAAAAAAAAAAAAAAD/80MUAAAAAAAAAAAAAAAAAAAAAABYaW5nAAAADwAAAAQAAAI8ABwcHBwcHBwcKCgoKCgoKCgxMTMTExMTExM6Ojo6Ojo6OjxMTExMTExMTE9PT09PT09PT1RUVFRUVFRUVFhYWFhYWFhYWDY2NjY2NjY2Njw8PDw8PDw8PEFBQUFBQUFBQUVFRUVFRUVFRUlJS0pKSkpKSkoAAAAAAAAAAAAAAAAAAAAAAAD/80MUAAsAAA0AAAAAAf88Bv88Bv6f0/p/T00000000000000000000000000000000000/80MUAAsAAA0AAAAAAf88Bv8+AAAAAAAFf9P6f09NNDQ0NDQ0NDQ0NDQ0NDQ0NDQwMCsrKysrKyv/80MUAAsAAA0AAAAAAf88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv88Bv";
-      silentPlayer.current = new Audio(silentMp3);
+      // Initialize silent player with real file (more reliable than Data URI on iOS)
+      silentPlayer.current = new Audio(getAudioPath("silence.mp3"));
       silentPlayer.current.loop = true;
+      silentPlayer.current.onpause = () => logToStorage("Heartbeat PAUSED");
+      silentPlayer.current.onplay = () => logToStorage("Heartbeat PLAYING");
 
       [introAudio, metronomeAudio, musicAudio].forEach(ref => {
         if (ref.current) {
@@ -179,12 +181,14 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       }
     };
     const checkTimeWrapper = () => {
-      // logToStorage("Tick received from worker");
-      checkTime();
-      // Sync logs state periodically
-      if (Math.random() > 0.95) {
-         setLogs(JSON.parse(localStorage.getItem("hvylyna_logs") || "[]"));
+      // Periodic log to confirm worker is alive under lock
+      const now = Date.now();
+      if (now - lastWorkerLogRef.current > 30000) {
+        logToStorage("Timer active (worker)");
+        lastWorkerLogRef.current = now;
+        setLogs(JSON.parse(localStorage.getItem("hvylyna_logs") || "[]"));
       }
+      checkTime();
     };
 
     // Initialize Web Worker Timer
