@@ -1,0 +1,6 @@
+warning: in the working copy of 'tmp_git_out6.txt', LF will be replaced by CRLF the next time Git touches it
+[main 46a2b34] Final working version with iOS audio fixes and test mode
+ 2 files changed, 9 insertions(+)
+ create mode 100644 final_commit_log.txt
+To https://github.com/tiqidini/hvylyna-movchannya.git
+   3ef0e50..46a2b34  main -> main

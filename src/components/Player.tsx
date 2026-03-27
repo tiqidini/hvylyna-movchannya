@@ -139,6 +139,9 @@ export default function Player() {
                       className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-mono font-bold text-center outline-none focus:border-blue-500/50 transition-all"
                     />
                   </div>
+                  <p className="text-xs text-zinc-500 mt-2 italic px-1">
+                    Для перевірки у фоні: встановіть час на 2 хвилини вперед, заблокуйте екран и не закривайте додаток.
+                  </p>
                 </div>
               </div>
             )}

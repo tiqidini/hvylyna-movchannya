@@ -29,6 +29,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const musicAudio = useRef<HTMLAudioElement | null>(null);
   const lastTriggerDate = useRef<string>("");
   const isUnlocked = useRef(false);
+  const audioCtx = useRef<AudioContext | null>(null);
   
   // Audio state tracking
   const audioModeRef = useRef(audioMode);
@@ -160,7 +161,20 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
     const timer = setInterval(checkTime, 1000);
     checkTime();
-    return () => clearInterval(timer);
+
+    // Re-check immediately when app returns to foreground
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        console.log("App visible, performing immediate time check...");
+        checkTime();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [isPlaying, isTestTimerEnabled, targetHour, targetMinute, testHour, testMinute]);
 
   const changeAudioMode = (mode: AudioMode) => {
@@ -238,6 +252,21 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     
     isUnlocked.current = true;
     console.log("Audio system unlocked for this session.");
+
+    // Start Silent Heartbeat to keep process alive on mobile
+    try {
+      if (!audioCtx.current) {
+        audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const silence = audioCtx.current.createBufferSource();
+        silence.buffer = audioCtx.current.createBuffer(1, 1, 22050);
+        silence.loop = true;
+        silence.connect(audioCtx.current.destination);
+        silence.start();
+        console.log("Silent heartbeat started via AudioContext");
+      }
+    } catch (e) {
+      console.error("Failed to start silent heartbeat:", e);
+    }
   };
 
   const toggleTestMode = async () => {
