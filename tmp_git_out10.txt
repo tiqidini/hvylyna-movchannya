@@ -1,0 +1,12 @@
+warning: in the working copy of 'public/sw.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Player.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/audio-engine.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp_git_out9.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'create_silence.py', LF will be replaced by CRLF the next time Git touches it
+[main 6cbe2bc] Final iOS background fix: Real MP3 heartbeat, throttled logs, and Active indicator
+ 7 files changed, 44 insertions(+), 10 deletions(-)
+ create mode 100644 create_silence.py
+ create mode 100644 public/audio/silence.mp3
+ create mode 100644 tmp_git_out10.txt
+To https://github.com/tiqidini/hvylyna-movchannya.git
+   26cb4aa..6cbe2bc  main -> main

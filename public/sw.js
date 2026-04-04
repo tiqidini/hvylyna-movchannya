@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hvylyna-cache-v10';
+const CACHE_NAME = 'hvylyna-cache-v11';
 const URLS_TO_CACHE = [
   '/hvylyna-movchannya/',
   '/hvylyna-movchannya/manifest.json',
@@ -7,6 +7,7 @@ const URLS_TO_CACHE = [
   '/hvylyna-movchannya/audio/metronome.mp3',
   '/hvylyna-movchannya/audio/metronome_only.mp3',
   '/hvylyna-movchannya/audio/solemn_music.mp3',
+  '/hvylyna-movchannya/audio/silence.mp3',
   '/hvylyna-movchannya/icons/icon-192x192.png',
   '/hvylyna-movchannya/icons/icon-512x512.png'
 ];
@@ -38,10 +39,32 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Strategy: Network First for HTML and Manifest
+  if (event.request.mode === 'navigate' || url.pathname.endsWith('manifest.json')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clonedResponse = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clonedResponse);
+          });
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Strategy: Cache First for assets
   event.respondWith(
     caches.match(event.request)
       .then((cacheResponse) => {
-        return cacheResponse || fetch(event.request).catch(() => {
+        return cacheResponse || fetch(event.request).then((fetchResponse) => {
+          // Optional: cache other assets on the fly
+          return fetchResponse;
+        }).catch(() => {
           console.warn('Fetch failed for:', event.request.url);
         });
       })

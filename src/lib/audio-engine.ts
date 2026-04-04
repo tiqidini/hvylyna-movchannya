@@ -116,65 +116,71 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   }, [introVariant]);
 
   useEffect(() => {
+    const getKyivSeconds = () => {
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Europe/Kyiv",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(new Date());
+      const hour = parseInt(parts.find(p => p.type === 'hour')?.value || "0");
+      const minute = parseInt(parts.find(p => p.type === 'minute')?.value || "0");
+      const second = parseInt(parts.find(p => p.type === 'second')?.value || "0");
+      return { 
+        total: hour * 3600 + minute * 60 + second,
+        h: hour, m: minute, s: second,
+        dateStr: new Date().toLocaleDateString("en-US", { timeZone: "Europe/Kyiv" })
+      };
+    };
+
     const checkTime = () => {
-      // Get current time in Kyiv
-      const now = new Date();
-      const kyivTimeStr = now.toLocaleString("en-US", { timeZone: "Europe/Kyiv" });
-      const kyivNow = new Date(kyivTimeStr);
-      const kyivTodayStr = kyivNow.toDateString();
+      const kyiv = getKyivSeconds();
+      const kyivTodayStr = kyiv.dateStr;
 
       // Reset trigger if day changed
-      if (lastTriggerDate.current !== kyivTodayStr) {
+      if (lastTriggerDate.current !== kyivTodayStr && !lastTriggerDate.current.includes("_test")) {
         setHasTriggeredToday(false);
       }
 
-      // 1. Calculate main 09:00 trigger (Kyiv time)
-      const target = new Date(kyivTimeStr);
-      target.setHours(targetHour, targetMinute, 0, 0);
-
-      // 2. Calculate test trigger if enabled
-      let testTarget: Date | null = null;
+      // Target seconds from midnight
+      const targetSec = targetHour * 3600 + targetMinute * 60;
+      let testTargetSec: number | null = null;
       if (isTestTimerEnabled) {
-        testTarget = new Date(kyivTimeStr);
-        testTarget.setHours(testHour, testMinute, 0, 0);
+        testTargetSec = testHour * 3600 + testMinute * 60;
       }
 
-      // Determine which target is next or current
-      let activeTarget = target;
-      if (testTarget && (testTarget > kyivNow || (testTarget <= kyivNow && testTarget.getTime() + 60000 > kyivNow.getTime()))) {
-         // If test is set and either in future OR just passed within last minute, show countdown to it
-         if (testTarget > kyivNow) activeTarget = testTarget;
-      } else if (target <= kyivNow) {
-        target.setDate(target.getDate() + 1);
-        activeTarget = target;
+      // Determine active countdown target
+      let activeTargetSec = targetSec;
+      if (testTargetSec !== null) {
+        // If test is in the future OR within the last minute, count down to it
+        if (testTargetSec > kyiv.total || (testTargetSec <= kyiv.total && testTargetSec + 60 > kyiv.total)) {
+          activeTargetSec = testTargetSec;
+        }
       }
 
-      const diff = activeTarget.getTime() - kyivNow.getTime();
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      let diff = activeTargetSec - kyiv.total;
+      if (diff < 0) diff += 86400; // Next day
+
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
 
       setTimeLeft(
-        `${hours.toString().padStart(2, "0")}:${minutes
-          .toString()
-          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+        `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
       );
 
       // TRIGGER LOGIC
-      // We trigger if: now >= target AND it's within the same minute AND hasn't triggered today yet
-      const shouldTriggerMain = 
-        kyivNow >= new Date(new Date(kyivTimeStr).setHours(targetHour, targetMinute, 0, 0)) && 
-        kyivNow.getTime() < new Date(new Date(kyivTimeStr).setHours(targetHour, targetMinute, 0, 0)).getTime() + 5000 &&
-        lastTriggerDate.current !== kyivTodayStr;
+      const isExactlyMainTime = kyiv.total >= targetSec && kyiv.total < targetSec + 5;
+      const isExactlyTestTime = testTargetSec !== null && kyiv.total >= testTargetSec && kyiv.total < testTargetSec + 5;
 
-      const shouldTriggerTest = 
-        isTestTimerEnabled &&
-        kyivNow >= new Date(new Date(kyivTimeStr).setHours(testHour, testMinute, 0, 0)) &&
-        kyivNow.getTime() < new Date(new Date(kyivTimeStr).setHours(testHour, testMinute, 0, 0)).getTime() + 5000 &&
-        lastTriggerDate.current !== kyivTodayStr + "_test";
+      const shouldTriggerMain = isExactlyMainTime && lastTriggerDate.current !== kyivTodayStr;
+      const shouldTriggerTest = isExactlyTestTime && lastTriggerDate.current !== kyivTodayStr + "_test";
 
       if ((shouldTriggerMain || shouldTriggerTest) && !isPlaying) {
         console.log("TRIGGERED! Main:", shouldTriggerMain, "Test:", shouldTriggerTest);
+        logToStorage(`Triggered: ${shouldTriggerMain ? "Main 09:00" : "Test Timer"}`);
         lastTriggerDate.current = shouldTriggerTest ? kyivTodayStr + "_test" : kyivTodayStr;
         setHasTriggeredToday(true);
         startPlayback();
@@ -194,7 +200,9 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     // Initialize Web Worker Timer
     try {
       if (typeof window !== "undefined" && !worker.current) {
-        worker.current = new Worker(new URL('/hvylyna-movchannya/timer-worker.js', window.location.origin));
+        // More robust URL construction for GitHub Pages base path
+        const basePath = window.location.pathname.startsWith('/hvylyna-movchannya') ? '/hvylyna-movchannya' : '';
+        worker.current = new Worker(`${basePath}/timer-worker.js`);
         worker.current.onmessage = (e) => {
           if (e.data === 'tick') checkTimeWrapper();
         };
