@@ -128,10 +128,12 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     }
   }, [introVariant]);
 
-  useEffect(() => {
+  // Function to calculate and update UI time state
+  // We keep this inside a ref to avoid stale closures in the worker/interval callbacks
+  const checkTimeRef = useRef<() => void | undefined>(undefined);
+
+  const checkTime = () => {
     const getKyivSeconds = () => {
-      // Robust calculation for Kyiv time
-      // Intl can be tricky, so let's parse carefully
       const now = new Date();
       const options: Intl.DateTimeFormatOptions = { 
         timeZone: "Europe/Kyiv", 
@@ -142,7 +144,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       };
       
       try {
-        const formatter = new Intl.DateTimeFormat("en-GB", options); // en-GB often more consistent with 24h
+        const formatter = new Intl.DateTimeFormat("en-GB", options);
         const parts = formatter.formatToParts(now);
         
         const finder = (type: string) => {
@@ -154,10 +156,8 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         let minute = finder('minute');
         let second = finder('second');
 
-        // Normalization (some browsers return 24 for midnight)
         if (hour >= 24) hour = 0;
         
-        // Safety bounds
         hour = Math.max(0, Math.min(23, hour));
         minute = Math.max(0, Math.min(59, minute));
         second = Math.max(0, Math.min(59, second));
@@ -168,8 +168,6 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
           dateStr: now.toLocaleDateString("uk-UA", { timeZone: "Europe/Kyiv" })
         };
       } catch (e) {
-        // Absolute fallback if Intl completely fails
-        // Assume Kyiv is UTC+3 (approximate for summer)
         const d = new Date(now.getTime() + (3 * 3600000) + (now.getTimezoneOffset() * 60000));
         return {
           total: d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds(),
@@ -179,108 +177,123 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       }
     };
 
-    const checkTime = () => {
-      const kyiv = getKyivSeconds();
-      const kyivTodayStr = kyiv.dateStr;
+    const kyiv = getKyivSeconds();
+    const kyivTodayStr = kyiv.dateStr;
 
-      // Reset trigger if day changed
-      if (lastTriggerDate.current !== kyivTodayStr && !lastTriggerDate.current.includes("_test")) {
-        setHasTriggeredToday(false);
+    // Reset trigger if day changed
+    if (lastTriggerDate.current !== kyivTodayStr && !lastTriggerDate.current.includes("_test")) {
+      setHasTriggeredToday(false);
+    }
+
+    // Target calculation
+    const targetSec = targetHour * 3600 + targetMinute * 60;
+    let activeTargetSec = targetSec;
+    
+    if (isTestTimerEnabled) {
+      const testTargetSec = testHour * 3600 + testMinute * 60;
+      // If test is in the future OR within the last minute, count down to it
+      if (testTargetSec > kyiv.total || (testTargetSec <= kyiv.total && testTargetSec + 60 > kyiv.total)) {
+        activeTargetSec = testTargetSec;
       }
+    }
 
-      // Target seconds from midnight
-      const targetSec = targetHour * 3600 + targetMinute * 60;
-      let testTargetSec: number | null = null;
-      if (isTestTimerEnabled) {
-        testTargetSec = testHour * 3600 + testMinute * 60;
-      }
+    let diff = activeTargetSec - kyiv.total;
+    if (diff < 0) diff += 86400;
 
-      // Determine active countdown target
-      let activeTargetSec = targetSec;
-      if (testTargetSec !== null) {
-        // If test is in the future OR within the last minute, count down to it
-        if (testTargetSec > kyiv.total || (testTargetSec <= kyiv.total && testTargetSec + 60 > kyiv.total)) {
-          activeTargetSec = testTargetSec;
+    const h_disp = Math.floor(diff / 3600);
+    const m_disp = Math.floor((diff % 3600) / 60);
+    const s_disp = diff % 60;
+
+    const timeStr = `${h_disp.toString().padStart(2, "0")}:${m_disp.toString().padStart(2, "0")}:${s_disp.toString().padStart(2, "0")}`;
+    setTimeLeft(timeStr);
+
+    // TRIGGER LOGIC
+    const isExactlyMainTime = kyiv.total >= targetSec && kyiv.total < targetSec + 5;
+    
+    let isExactlyTestTime = false;
+    if (isTestTimerEnabled) {
+      const testTargetSec = testHour * 3600 + testMinute * 60;
+      isExactlyTestTime = kyiv.total >= testTargetSec && kyiv.total < testTargetSec + 5;
+    }
+
+    const shouldTriggerMain = isExactlyMainTime && lastTriggerDate.current !== kyivTodayStr;
+    const shouldTriggerTest = isExactlyTestTime && lastTriggerDate.current !== kyivTodayStr + "_test";
+
+    if ((shouldTriggerMain || shouldTriggerTest) && !isPlaying) {
+      console.log("TRIGGERED! Main:", shouldTriggerMain, "Test:", shouldTriggerTest);
+      logToStorage(`Triggered: ${shouldTriggerMain ? "Main 09:00" : "Test Timer"}`);
+      lastTriggerDate.current = shouldTriggerTest ? kyivTodayStr + "_test" : kyivTodayStr;
+      setHasTriggeredToday(true);
+      startPlayback();
+    }
+
+    // Sync logs to state for UI updates
+    try {
+      const stored = localStorage.getItem('hvylyna_logs');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length !== logs.length) {
+          setLogs(parsed);
         }
       }
+    } catch (e) {}
 
-      let diff = activeTargetSec - kyiv.total;
-      if (diff < 0) diff += 86400; // Next day
+    // Periodic "heartbeat" check inside browser context
+    const now = Date.now();
+    if (now - lastWorkerLogRef.current > 30000) {
+      logToStorage("Timer active (pulse)");
+      lastWorkerLogRef.current = now;
+    }
+  };
 
-      const h_disp = Math.floor(diff / 3600);
-      const m_disp = Math.floor((diff % 3600) / 60);
-      const s_disp = diff % 60;
+  // Update logic reference every render to avoid stale closures
+  useEffect(() => {
+    checkTimeRef.current = checkTime;
+  });
 
-      setTimeLeft(
-        `${h_disp.toString().padStart(2, "0")}:${m_disp.toString().padStart(2, "0")}:${s_disp.toString().padStart(2, "0")}`
-      );
-
-      // TRIGGER LOGIC
-      const isExactlyMainTime = kyiv.total >= targetSec && kyiv.total < targetSec + 5;
-      const isExactlyTestTime = testTargetSec !== null && kyiv.total >= testTargetSec && kyiv.total < testTargetSec + 5;
-
-      const shouldTriggerMain = isExactlyMainTime && lastTriggerDate.current !== kyivTodayStr;
-      const shouldTriggerTest = isExactlyTestTime && lastTriggerDate.current !== kyivTodayStr + "_test";
-
-      if ((shouldTriggerMain || shouldTriggerTest) && !isPlaying) {
-        console.log("TRIGGERED! Main:", shouldTriggerMain, "Test:", shouldTriggerTest);
-        logToStorage(`Triggered: ${shouldTriggerMain ? "Main 09:00" : "Test Timer"}`);
-        lastTriggerDate.current = shouldTriggerTest ? kyivTodayStr + "_test" : kyivTodayStr;
-        setHasTriggeredToday(true);
-        startPlayback();
-      }
+  // Main Timer Lifecycle Effect
+  useEffect(() => {
+    const handleTick = () => {
+      checkTimeRef.current?.();
     };
 
-    const checkTimeWrapper = () => {
-      // Refresh logs from storage every tick to ensure UI is in sync
-      const logsFromStorage = JSON.parse(localStorage.getItem("hvylyna_logs") || "[]");
-      setLogs(logsFromStorage);
-
-      const now = Date.now();
-      if (now - lastWorkerLogRef.current > 30000) {
-        logToStorage("Timer active (worker)");
-        lastWorkerLogRef.current = now;
-      }
-      checkTime();
-    };
-
-    // Initialize Web Worker Timer
+    // Initialize Web Worker Timer once
     try {
       if (typeof window !== "undefined" && !worker.current) {
-        // More robust URL construction for GitHub Pages base path
         const basePath = window.location.pathname.startsWith('/hvylyna-movchannya') ? '/hvylyna-movchannya' : '';
         worker.current = new Worker(`${basePath}/timer-worker.js`);
         worker.current.onmessage = (e) => {
-          if (e.data === 'tick') checkTimeWrapper();
+          if (e.data === 'tick') handleTick();
         };
         worker.current.postMessage('start');
-        logToStorage("Web Worker timer started");
+        logToStorage("Web Worker heartbeat initialized");
       }
     } catch (e) {
       console.error("Worker failed, falling back to setInterval", e);
       logToStorage("Worker failed, fallback active");
-      const timer = setInterval(checkTimeWrapper, 1000);
+      const timer = setInterval(handleTick, 1000);
       return () => clearInterval(timer);
     }
 
-    checkTime();
+    // Still perform an initial tick
+    handleTick();
 
     // Re-check immediately when app returns to foreground
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        console.log("App visible, performing immediate time check...");
-        logToStorage("App visible, resyncing");
-        checkTime();
-        setLogs(JSON.parse(localStorage.getItem("hvylyna_logs") || "[]"));
+        logToStorage("Foreground resync");
+        handleTick();
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      if (worker.current) worker.current.postMessage('stop');
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // NOTE: We DO NOT stop the worker here because it's persistent in worker.current
+      // This ensures background execution survives React component re-renders/hot-reloads.
     };
-  }, [isPlaying, isTestTimerEnabled, targetHour, targetMinute, testHour, testMinute]);
+  }, []); // Only run once on mount!
+
 
   const changeAudioMode = (mode: AudioMode) => {
     setAudioMode(mode);
