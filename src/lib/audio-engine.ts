@@ -13,10 +13,17 @@ const getAudioPath = (filename: string) => {
 
 const logToStorage = (message: string) => {
   if (typeof window === "undefined") return;
-  const logs = JSON.parse(localStorage.getItem("hvylyna_logs") || "[]");
-  const entry = `${new Date().toLocaleTimeString('uk-UA')}: ${message}`;
-  logs.unshift(entry);
-  localStorage.setItem("hvylyna_logs", JSON.stringify(logs.slice(0, 50)));
+  const now = new Date();
+  const time = now.toLocaleTimeString("uk-UA", { 
+    hour: "2-digit", 
+    minute: "2-digit", 
+    second: "2-digit",
+    timeZone: "Europe/Kyiv" 
+  });
+  const entry = `${time}: ${message}`;
+  const logsArr = JSON.parse(localStorage.getItem("hvylyna_logs") || "[]");
+  logsArr.unshift(entry);
+  localStorage.setItem("hvylyna_logs", JSON.stringify(logsArr.slice(0, 50)));
 };
 
 export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0) => {
@@ -55,10 +62,16 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       if (savedVariant) setIntroVariant(savedVariant);
 
       const savedTestHour = localStorage.getItem("hvylyna_test_hour");
-      if (savedTestHour) setTestHour(parseInt(savedTestHour));
+      if (savedTestHour) {
+        const h = parseInt(savedTestHour);
+        if (!isNaN(h)) setTestHour(Math.max(0, Math.min(23, h)));
+      }
 
       const savedTestMin = localStorage.getItem("hvylyna_test_minute");
-      if (savedTestMin) setTestMinute(parseInt(savedTestMin));
+      if (savedTestMin) {
+        const m = parseInt(savedTestMin);
+        if (!isNaN(m)) setTestMinute(Math.max(0, Math.min(59, m)));
+      }
 
       const savedTestEnabled = localStorage.getItem("hvylyna_test_enabled");
       if (savedTestEnabled === "true") setIsTestTimerEnabled(true);
@@ -117,22 +130,53 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
   useEffect(() => {
     const getKyivSeconds = () => {
-      const formatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: "Europe/Kyiv",
-        hour: "numeric",
-        minute: "numeric",
-        second: "numeric",
-        hour12: false,
-      });
-      const parts = formatter.formatToParts(new Date());
-      const hour = parseInt(parts.find(p => p.type === 'hour')?.value || "0");
-      const minute = parseInt(parts.find(p => p.type === 'minute')?.value || "0");
-      const second = parseInt(parts.find(p => p.type === 'second')?.value || "0");
-      return { 
-        total: hour * 3600 + minute * 60 + second,
-        h: hour, m: minute, s: second,
-        dateStr: new Date().toLocaleDateString("en-US", { timeZone: "Europe/Kyiv" })
+      // Robust calculation for Kyiv time
+      // Intl can be tricky, so let's parse carefully
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = { 
+        timeZone: "Europe/Kyiv", 
+        hour: "numeric", 
+        minute: "numeric", 
+        second: "numeric", 
+        hour12: false 
       };
+      
+      try {
+        const formatter = new Intl.DateTimeFormat("en-GB", options); // en-GB often more consistent with 24h
+        const parts = formatter.formatToParts(now);
+        
+        const finder = (type: string) => {
+          const val = parts.find(p => p.type === type)?.value;
+          return parseInt(val || "0", 10);
+        };
+
+        let hour = finder('hour');
+        let minute = finder('minute');
+        let second = finder('second');
+
+        // Normalization (some browsers return 24 for midnight)
+        if (hour >= 24) hour = 0;
+        
+        // Safety bounds
+        hour = Math.max(0, Math.min(23, hour));
+        minute = Math.max(0, Math.min(59, minute));
+        second = Math.max(0, Math.min(59, second));
+
+        return { 
+          total: hour * 3600 + minute * 60 + second,
+          h: hour, m: minute, s: second,
+          dateStr: now.toLocaleDateString("uk-UA", { timeZone: "Europe/Kyiv" })
+        };
+      } catch (e) {
+        // Absolute fallback if Intl completely fails
+        // Assume Kyiv is UTC+3 (approximate for summer)
+        const d = new Date(now.getTime() + (3 * 3600000) + (now.getTimezoneOffset() * 60000));
+        return {
+          total: d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds(),
+          h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(),
+          dateStr: "fallback"
+        };
+      }
     };
 
     const checkTime = () => {
@@ -163,12 +207,12 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       let diff = activeTargetSec - kyiv.total;
       if (diff < 0) diff += 86400; // Next day
 
-      const h = Math.floor(diff / 3600);
-      const m = Math.floor((diff % 3600) / 60);
-      const s = diff % 60;
+      const h_disp = Math.floor(diff / 3600);
+      const m_disp = Math.floor((diff % 3600) / 60);
+      const s_disp = diff % 60;
 
       setTimeLeft(
-        `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
+        `${h_disp.toString().padStart(2, "0")}:${m_disp.toString().padStart(2, "0")}:${s_disp.toString().padStart(2, "0")}`
       );
 
       // TRIGGER LOGIC
@@ -186,13 +230,16 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         startPlayback();
       }
     };
+
     const checkTimeWrapper = () => {
-      // Periodic log to confirm worker is alive under lock
+      // Refresh logs from storage every tick to ensure UI is in sync
+      const logsFromStorage = JSON.parse(localStorage.getItem("hvylyna_logs") || "[]");
+      setLogs(logsFromStorage);
+
       const now = Date.now();
       if (now - lastWorkerLogRef.current > 30000) {
         logToStorage("Timer active (worker)");
         lastWorkerLogRef.current = now;
-        setLogs(JSON.parse(localStorage.getItem("hvylyna_logs") || "[]"));
       }
       checkTime();
     };

@@ -39,6 +39,21 @@ export default function RootLayout({
                   navigator.serviceWorker.register('/hvylyna-movchannya/sw.js');
                 });
               }
+              
+              // Handle ChunkLoadError (Cache Trap Fix)
+              window.addEventListener('error', function(e) {
+                if (e.message && (e.message.indexOf('ChunkLoadError') !== -1 || e.message.indexOf('Loading chunk') !== -1)) {
+                  console.warn('ChunkLoadError detected. Reloading for update...');
+                  window.location.reload(true);
+                }
+              }, true);
+              
+              // Second Line of Defense: Check for 404s in scripts
+              window.addEventListener('unhandledrejection', function(e) {
+                if (e.reason && e.reason.name === 'ChunkLoadError') {
+                  window.location.reload(true);
+                }
+              });
             `,
           }}
         />

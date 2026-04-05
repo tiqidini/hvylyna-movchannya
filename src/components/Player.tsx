@@ -127,7 +127,10 @@ export default function Player() {
                       type="number" 
                       min="0" max="23" 
                       value={testHour} 
-                      onChange={(e) => setTestTimer(parseInt(e.target.value) || 0, testMinute)}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value);
+                        setTestTimer(isNaN(v) ? 0 : Math.max(0, Math.min(23, v)), testMinute);
+                      }}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-mono font-bold text-center outline-none focus:border-blue-500/50 transition-all"
                     />
                   </div>
@@ -137,7 +140,10 @@ export default function Player() {
                       type="number" 
                       min="0" max="59" 
                       value={testMinute} 
-                      onChange={(e) => setTestTimer(testHour, parseInt(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value);
+                        setTestTimer(testHour, isNaN(v) ? 0 : Math.max(0, Math.min(59, v)));
+                      }}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-mono font-bold text-center outline-none focus:border-blue-500/50 transition-all"
                     />
                   </div>
@@ -160,12 +166,23 @@ export default function Player() {
                     </div>
                   )}
                 </div>
-                <button 
-                  onClick={clearLogs}
-                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  Очистити
-                </button>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(logs.join('\n'));
+                      alert('Логи скопійовано!');
+                    }}
+                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    Копіювати
+                  </button>
+                  <button 
+                    onClick={clearLogs}
+                    className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    Очистити
+                  </button>
+                </div>
               </div>
               <div className="max-h-40 overflow-y-auto font-mono text-[10px] text-zinc-500 space-y-1 bg-black/30 rounded-xl p-3 border border-white/5">
                 {logs.length > 0 ? (
