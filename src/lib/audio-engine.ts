@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music" | "speech_metronome_anthem";
 export type IntroVariant = "standard" | "alternative";
-export type AnthemVariant = "instrumental" | "choral" | "rock";
+export type AnthemVariant = "instrumental" | "choral" | "rock" | "verovka";
 
 // Helper to get path for audio assets
 const getAudioPath = (filename: string) => {
@@ -479,7 +479,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     
     // Also prime all anthem variants by temporarily changing src
     // This is a bit aggressive but ensures they are all cached/unlocked
-    const variants: AnthemVariant[] = ["instrumental", "choral", "rock"];
+    const variants: AnthemVariant[] = ["instrumental", "choral", "rock", "verovka"];
     for (const v of variants) {
       if (anthemAudio.current) {
         const path = getAudioPath(`anthem_${v}.mp3`);

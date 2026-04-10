@@ -19,6 +19,7 @@ const ANTHEM_VARIANTS: { id: AnthemVariant; label: string; desc: string }[] = [
   { id: "instrumental", label: "Інструментальний", desc: "Оркестрове виконання (класика)" },
   { id: "choral", label: "Хоровий", desc: "Урочистий спів хору" },
   { id: "rock", label: "Сучасний", desc: "Альтернативне інструментальне звучання" },
+  { id: "verovka", label: "Хор ім. Верьовки", desc: "Легендарне академічне виконання" },
 ];
 
 export default function Player() {
