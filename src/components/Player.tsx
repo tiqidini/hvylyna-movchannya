@@ -1,17 +1,24 @@
 "use client";
 
-import { useAudioEngine, AudioMode, IntroVariant } from "@/lib/audio-engine";
+import { useAudioEngine, AudioMode, IntroVariant, AnthemVariant } from "@/lib/audio-engine";
 import { useState, useEffect } from "react";
 
 const MODES: { id: AudioMode; label: string; desc: string }[] = [
   { id: "speech_metronome", label: "Голос + Метроном", desc: "Голосове оголошення та звук метроному" },
   { id: "metronome_only", label: "Тільки Метроном", desc: "Лише звук метроному пам'яті" },
   { id: "speech_music", label: "Голос + Музика", desc: "Голосове оголошення та урочиста мелодія" },
+  { id: "speech_metronome_anthem", label: "Голос + Метроном + Гімн", desc: "Вступ, хвилина метроному та Гімн України" },
 ];
 
 const INTRO_VARIANTS: { id: IntroVariant; label: string; desc: string }[] = [
   { id: "standard", label: "Варіант №1", desc: "Класичне оголошення (офіційне)" },
   { id: "alternative", label: "Варіант №2", desc: "Чистий голос (Українське Радіо)" },
+];
+
+const ANTHEM_VARIANTS: { id: AnthemVariant; label: string; desc: string }[] = [
+  { id: "instrumental", label: "Інструментальний", desc: "Оркестрове виконання (класика)" },
+  { id: "choral", label: "Хоровий", desc: "Урочистий спів хору" },
+  { id: "rock", label: "Сучасний", desc: "Альтернативне інструментальне звучання" },
 ];
 
 export default function Player() {
@@ -28,6 +35,8 @@ export default function Player() {
     changeAudioMode,
     introVariant,
     changeIntroVariant,
+    anthemVariant,
+    changeAnthemVariant,
     unlockAudio,
     logs,
     clearLogs
@@ -103,6 +112,27 @@ export default function Player() {
               </button>
             ))}
           </div>
+
+          {audioMode === "speech_metronome_anthem" && (
+            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+              <h2 className="text-xl font-black text-white mt-12 mb-6 tracking-tight text-center">Виконання Гімну</h2>
+              <div className="grid grid-cols-3 gap-3">
+                {ANTHEM_VARIANTS.map((variant) => (
+                  <button
+                    key={variant.id}
+                    onClick={() => changeAnthemVariant(variant.id)}
+                    className={`p-3 rounded-[1.2rem] border transition-all active:scale-[0.95] flex flex-col items-center justify-center text-center ${
+                      anthemVariant === variant.id
+                        ? "bg-yellow-500/20 border-yellow-500/40 text-yellow-500"
+                        : "border-white/5 text-white/20 hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="font-black text-[10px] uppercase tracking-wider">{variant.label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-12 p-6 rounded-[2rem] bg-white/5 border border-white/10">
             <div className="flex items-center justify-between mb-6">

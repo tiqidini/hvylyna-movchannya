@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music";
+export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music" | "speech_metronome_anthem";
 export type IntroVariant = "standard" | "alternative";
+export type AnthemVariant = "instrumental" | "choral" | "rock";
 
 // Helper to get path for audio assets
 const getAudioPath = (filename: string) => {
@@ -31,6 +32,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioMode, setAudioMode] = useState<AudioMode>("speech_metronome");
   const [introVariant, setIntroVariant] = useState<IntroVariant>("standard");
+  const [anthemVariant, setAnthemVariant] = useState<AnthemVariant>("instrumental");
   
   // Test Mode state
   const [isTestTimerEnabled, setIsTestTimerEnabled] = useState(false);
@@ -42,6 +44,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const introAudio = useRef<HTMLAudioElement | null>(null);
   const metronomeAudio = useRef<HTMLAudioElement | null>(null);
   const musicAudio = useRef<HTMLAudioElement | null>(null);
+  const anthemAudio = useRef<HTMLAudioElement | null>(null);
   const lastTriggerDate = useRef<string>("");
   const isUnlocked = useRef(false);
   const audioCtx = useRef<AudioContext | null>(null);
@@ -61,6 +64,9 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       const savedVariant = localStorage.getItem("hvylyna_intro_variant") as IntroVariant;
       if (savedVariant) setIntroVariant(savedVariant);
 
+      const savedAnthem = localStorage.getItem("hvylyna_anthem_variant") as AnthemVariant;
+      if (savedAnthem) setAnthemVariant(savedAnthem);
+
       const savedTestHour = localStorage.getItem("hvylyna_test_hour");
       if (savedTestHour) {
         const h = parseInt(savedTestHour);
@@ -79,12 +85,14 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       const introPath = getAudioPath("intro.mp3");
       const metronomePath = getAudioPath("metronome.mp3");
       const musicPath = getAudioPath("metronome_only.mp3"); // Using this as solemn music if solemn_music.mp3 is placeholder
+      const anthemPath = getAudioPath("anthem_instrumental.mp3");
 
-      console.log("Audio Paths:", { introPath, metronomePath, musicPath });
+      console.log("Audio Paths:", { introPath, metronomePath, musicPath, anthemPath });
 
       introAudio.current = new Audio(introPath);
       metronomeAudio.current = new Audio(metronomePath);
       musicAudio.current = new Audio(musicPath);
+      anthemAudio.current = new Audio(anthemPath);
 
       // Setup transition handlers once
       introAudio.current.onended = () => {
@@ -95,8 +103,29 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
           bgAudio.loop = true;
           bgAudio.play().catch(e => console.warn("Background audio blocked", e));
         }
-        // Background runs for 60 seconds
-        setTimeout(() => stopPlayback(), 60000);
+        
+        // Duration logic
+        if (mode === "speech_metronome_anthem") {
+          // Play metronome for 60s, then switch to anthem
+          setTimeout(() => {
+            if (metronomeAudio.current) {
+              metronomeAudio.current.pause();
+              metronomeAudio.current.currentTime = 0;
+            }
+            if (anthemAudio.current) {
+              anthemAudio.current.play().catch(e => console.error("Anthem blocked", e));
+            }
+          }, 60000);
+        } else {
+          // Background runs for 60 seconds (standard)
+          setTimeout(() => stopPlayback(), 60000);
+        }
+      };
+
+      // Finish when anthem ends
+      anthemAudio.current.onended = () => {
+        console.log("Anthem finished");
+        stopPlayback();
       };
 
       // Initialize silent player with real file (more reliable than Data URI on iOS)
@@ -105,7 +134,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       silentPlayer.current.onpause = () => logToStorage("Heartbeat PAUSED");
       silentPlayer.current.onplay = () => logToStorage("Heartbeat PLAYING");
 
-      [introAudio, metronomeAudio, musicAudio].forEach(ref => {
+      [introAudio, metronomeAudio, musicAudio, anthemAudio].forEach(ref => {
         if (ref.current) {
           ref.current.load();
           ref.current.preload = "auto";
@@ -127,6 +156,15 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       introAudio.current.load();
     }
   }, [introVariant]);
+
+  // Sync anthem variant to audio object
+  useEffect(() => {
+    if (typeof window !== "undefined" && anthemAudio.current) {
+      const filename = `anthem_${anthemVariant}.mp3`;
+      anthemAudio.current.src = getAudioPath(filename);
+      anthemAudio.current.load();
+    }
+  }, [anthemVariant]);
 
   // Function to calculate and update UI time state
   // We keep this inside a ref to avoid stale closures in the worker/interval callbacks
@@ -305,6 +343,11 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     localStorage.setItem("hvylyna_intro_variant", variant);
   };
 
+  const changeAnthemVariant = (variant: AnthemVariant) => {
+    setAnthemVariant(variant);
+    localStorage.setItem("hvylyna_anthem_variant", variant);
+  };
+
   const startPlayback = async () => {
     if (isPlaying) return;
     setIsPlaying(true);
@@ -334,7 +377,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
   const stopPlayback = () => {
     console.log("Stopping playback...");
-    [introAudio, metronomeAudio, musicAudio].forEach(ref => {
+    [introAudio, metronomeAudio, musicAudio, anthemAudio].forEach(ref => {
       if (ref.current) {
         ref.current.pause();
         ref.current.currentTime = 0;
@@ -365,7 +408,8 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     await Promise.all([
       prime(introAudio.current),
       prime(metronomeAudio.current),
-      prime(musicAudio.current)
+      prime(musicAudio.current),
+      prime(anthemAudio.current)
     ]);
     
     isUnlocked.current = true;
@@ -435,6 +479,8 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     changeAudioMode,
     introVariant,
     changeIntroVariant,
+    anthemVariant,
+    changeAnthemVariant,
     logs,
     clearLogs: () => {
       localStorage.removeItem("hvylyna_logs");
