@@ -30,6 +30,7 @@ const logToStorage = (message: string) => {
 export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0) => {
   const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const [audioMode, setAudioMode] = useState<AudioMode>("speech_metronome");
   const [introVariant, setIntroVariant] = useState<IntroVariant>("standard");
   const [anthemVariant, setAnthemVariant] = useState<AnthemVariant>("instrumental");
@@ -351,6 +352,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const startPlayback = async () => {
     if (isPlaying) return;
     setIsPlaying(true);
+    setIsPreviewing(false); // Stop preview when actual playback starts
     
     try {
       if (audioMode === "metronome_only") {
@@ -384,6 +386,46 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       }
     });
     setIsPlaying(false);
+    setIsPreviewing(false);
+  };
+
+  const previewAnthem = async (variant: AnthemVariant) => {
+    if (isPlaying) return;
+    
+    // Stop any active audio first
+    if (anthemAudio.current) {
+      anthemAudio.current.pause();
+      anthemAudio.current.currentTime = 0;
+    }
+
+    if (isPreviewing) {
+      setIsPreviewing(false);
+      return;
+    }
+
+    setIsPreviewing(true);
+    if (anthemAudio.current) {
+      const filename = `anthem_${variant}.mp3`;
+      anthemAudio.current.src = getAudioPath(filename);
+      anthemAudio.current.load();
+      try {
+        await anthemAudio.current.play();
+        // Reset preview state when audio ends naturally
+        anthemAudio.current.onended = () => {
+          setIsPreviewing(false);
+          // Restore the anthem ended handler for normal operation
+          if (anthemAudio.current) {
+            anthemAudio.current.onended = () => {
+              console.log("Anthem finished");
+              stopPlayback();
+            };
+          }
+        };
+      } catch (e) {
+        console.error("Preview blocked", e);
+        setIsPreviewing(false);
+      }
+    }
   };
 
   const unlockAudio = async () => {
@@ -467,6 +509,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   return { 
     timeLeft, 
     isPlaying, 
+    isPreviewing,
     isTestTimerEnabled, 
     testHour,
     testMinute,
@@ -474,7 +517,8 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     toggleTestTimer,
     toggleTestMode, 
     unlockAudio,
-    stopPlayback, 
+    stopPlayback,
+    previewAnthem,
     audioMode, 
     changeAudioMode,
     introVariant,

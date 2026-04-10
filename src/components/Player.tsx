@@ -24,7 +24,8 @@ const ANTHEM_VARIANTS: { id: AnthemVariant; label: string; desc: string }[] = [
 export default function Player() {
   const { 
     timeLeft, 
-    isPlaying, 
+    isPlaying,
+    isPreviewing,
     isTestTimerEnabled,
     testHour,
     testMinute,
@@ -38,9 +39,28 @@ export default function Player() {
     anthemVariant,
     changeAnthemVariant,
     unlockAudio,
+    previewAnthem,
     logs,
     clearLogs
   } = useAudioEngine(9, 0);
+
+  const [currentPreview, setCurrentPreview] = useState<AnthemVariant | null>(null);
+
+  const handlePreview = (e: React.MouseEvent, variant: AnthemVariant) => {
+    e.stopPropagation();
+    if (currentPreview === variant && isPreviewing) {
+      previewAnthem(variant);
+      setCurrentPreview(null);
+    } else {
+      previewAnthem(variant);
+      setCurrentPreview(variant);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPreviewing) setCurrentPreview(null);
+  }, [isPreviewing]);
+
   const [mounted, setMounted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -116,19 +136,37 @@ export default function Player() {
           {audioMode === "speech_metronome_anthem" && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-500">
               <h2 className="text-xl font-black text-white mt-12 mb-6 tracking-tight text-center">Виконання Гімну</h2>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 {ANTHEM_VARIANTS.map((variant) => (
-                  <button
+                  <div
                     key={variant.id}
                     onClick={() => changeAnthemVariant(variant.id)}
-                    className={`p-3 rounded-[1.2rem] border transition-all active:scale-[0.95] flex flex-col items-center justify-center text-center ${
+                    className={`p-4 rounded-[1.5rem] border transition-all active:scale-[0.98] flex items-center justify-between cursor-pointer ${
                       anthemVariant === variant.id
-                        ? "bg-yellow-500/20 border-yellow-500/40 text-yellow-500"
+                        ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
                         : "border-white/5 text-white/20 hover:bg-white/5"
                     }`}
                   >
-                    <div className="font-black text-[10px] uppercase tracking-wider">{variant.label}</div>
-                  </button>
+                    <div className="flex flex-col text-left">
+                      <div className="font-black text-sm uppercase tracking-wide">{variant.label}</div>
+                      <div className="text-[10px] opacity-40 mt-0.5 font-medium">{variant.desc}</div>
+                    </div>
+                    
+                    <button
+                      onClick={(e) => handlePreview(e, variant.id)}
+                      className={`p-3 rounded-full transition-all ${
+                        currentPreview === variant.id && isPreviewing
+                        ? "bg-yellow-500 text-black scale-110 shadow-lg"
+                        : "bg-white/5 text-white/40 hover:bg-white/10"
+                      }`}
+                    >
+                      {currentPreview === variant.id && isPreviewing ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      )}
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
