@@ -6,7 +6,8 @@ import os
 # Updated URLs with working mirrors
 anthems = {
     "anthem_instrumental.mp3": "https://web.archive.org/web/20201011162509/https://www.navyband.navy.mil/music/anthems/ukraine.mp3",
-    "anthem_choral.mp3": "https://zvukipro.com/index.php?do=download&id=3814",
+    # Updated Choral anthem to a more stable mirror (Dumka Choir or similar)
+    "anthem_choral.mp3": "https://archive.org/download/NationalAnthemOfUkraine-StateAnthem-Choral/National%20Anthem%20of%20Ukraine%20-%20State%20Anthem%20-%20Choral.mp3",
     "anthem_rock.mp3": "https://ukr-portal.com/uploads/files/gim_rok-versia.mp3"
 }
 
