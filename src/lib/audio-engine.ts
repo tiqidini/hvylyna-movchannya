@@ -438,32 +438,57 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
   const unlockAudio = async () => {
     if (isUnlocked.current) return;
-    console.log("Attempting to unlock audio for iOS...");
+    console.log("Attempting to unlock audio for mobile...");
+    logToStorage("Unlocking audio system...");
     
-    const prime = async (audio: HTMLAudioElement | null) => {
+    const prime = async (audio: HTMLAudioElement | null, name: string) => {
       if (!audio) return;
       try {
-        // Play silent or low volume to unlock
         const originalVolume = audio.volume;
         audio.volume = 0;
-        await audio.play();
-        audio.pause();
+        // Some mobile browsers need play() to be called in a user gesture handler
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+          audio.pause();
+          audio.currentTime = 0;
+        }
         audio.volume = originalVolume;
-        console.log("Audio object unlocked:", audio.src.split('/').pop());
+        console.log(`Unlocked: ${name}`);
+        logToStorage(`Audio unlocked: ${name}`);
       } catch (e) {
-        console.error("Unlock failed for audio object:", e);
+        console.warn(`Unlock failed for ${name}:`, e);
+        logToStorage(`Unlock failed: ${name}`);
       }
     };
 
+    // Pre-unlock all main elements
     await Promise.all([
-      prime(introAudio.current),
-      prime(metronomeAudio.current),
-      prime(musicAudio.current),
-      prime(anthemAudio.current)
+      prime(introAudio.current, "Intro"),
+      prime(metronomeAudio.current, "Metronome"),
+      prime(musicAudio.current, "Music"),
+      prime(anthemAudio.current, "Anthem")
     ]);
+    
+    // Also prime all anthem variants by temporarily changing src
+    // This is a bit aggressive but ensures they are all cached/unlocked
+    const variants: AnthemVariant[] = ["instrumental", "choral", "rock"];
+    for (const v of variants) {
+      if (anthemAudio.current) {
+        const path = getAudioPath(`anthem_${v}.mp3`);
+        const tempAudio = new Audio(path);
+        tempAudio.volume = 0;
+        try {
+          await tempAudio.play();
+          tempAudio.pause();
+          logToStorage(`Variant primed: ${v}`);
+        } catch(e) {}
+      }
+    }
     
     isUnlocked.current = true;
     console.log("Audio system unlocked for this session.");
+    logToStorage("Audio system FULLY UNLOCKED");
 
     // Start Silent Heartbeat to keep process alive on mobile
     try {
