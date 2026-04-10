@@ -9,7 +9,10 @@ export type AnthemVariant = "instrumental" | "choral" | "rock";
 // Helper to get path for audio assets
 const getAudioPath = (filename: string) => {
   if (typeof window === "undefined") return "";
-  return `audio/${filename}`;
+  // Check if we are on GitHub Pages or local
+  const isGitHubPages = window.location.pathname.startsWith('/hvylyna-movchannya');
+  const base = isGitHubPages ? '/hvylyna-movchannya/' : '/';
+  return `${base}audio/${filename}`;
 };
 
 const logToStorage = (message: string) => {
@@ -114,6 +117,11 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
               metronomeAudio.current.currentTime = 0;
             }
             if (anthemAudio.current) {
+              // Ensure onended is correctly set for normal playback (not preview)
+              anthemAudio.current.onended = () => {
+                console.log("Anthem finished");
+                stopPlayback();
+              };
               anthemAudio.current.play().catch(e => console.error("Anthem blocked", e));
             }
           }, 60000);
@@ -123,7 +131,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         }
       };
 
-      // Finish when anthem ends
+      // Initial onended for anthem
       anthemAudio.current.onended = () => {
         console.log("Anthem finished");
         stopPlayback();
