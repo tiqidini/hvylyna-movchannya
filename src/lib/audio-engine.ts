@@ -49,6 +49,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const metronomeAudio = useRef<HTMLAudioElement | null>(null);
   const musicAudio = useRef<HTMLAudioElement | null>(null);
   const anthemAudio = useRef<HTMLAudioElement | null>(null);
+  const anthemTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTriggerDate = useRef<string>("");
   const isUnlocked = useRef(false);
   const audioCtx = useRef<AudioContext | null>(null);
@@ -111,7 +112,8 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         // Duration logic
         if (mode === "speech_metronome_anthem") {
           // Play metronome for 60s, then switch to anthem
-          setTimeout(() => {
+          if (anthemTimeoutRef.current) clearTimeout(anthemTimeoutRef.current);
+          anthemTimeoutRef.current = setTimeout(() => {
             if (metronomeAudio.current) {
               metronomeAudio.current.pause();
               metronomeAudio.current.currentTime = 0;
@@ -127,7 +129,8 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
           }, 60000);
         } else {
           // Background runs for 60 seconds (standard)
-          setTimeout(() => stopPlayback(), 60000);
+          if (anthemTimeoutRef.current) clearTimeout(anthemTimeoutRef.current);
+          anthemTimeoutRef.current = setTimeout(() => stopPlayback(), 60000);
         }
       };
 
@@ -387,6 +390,10 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
   const stopPlayback = () => {
     console.log("Stopping playback...");
+    if (anthemTimeoutRef.current) {
+      clearTimeout(anthemTimeoutRef.current);
+      anthemTimeoutRef.current = null;
+    }
     [introAudio, metronomeAudio, musicAudio, anthemAudio].forEach(ref => {
       if (ref.current) {
         ref.current.pause();
