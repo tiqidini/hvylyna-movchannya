@@ -50,7 +50,9 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   const musicAudio = useRef<HTMLAudioElement | null>(null);
   const anthemAudio = useRef<HTMLAudioElement | null>(null);
   const anthemTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const activeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // New central timeout ref
   const lastTriggerDate = useRef<string>("");
+  const isPlayingRef = useRef(false); // New ref for immediate state tracking
   const isUnlocked = useRef(false);
   const audioCtx = useRef<AudioContext | null>(null);
   const worker = useRef<Worker | null>(null);
@@ -112,13 +114,14 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         // Duration logic
         if (mode === "speech_metronome_anthem") {
           // Play metronome for 60s, then switch to anthem
-          if (anthemTimeoutRef.current) clearTimeout(anthemTimeoutRef.current);
-          anthemTimeoutRef.current = setTimeout(() => {
+          if (activeTimeoutRef.current) clearTimeout(activeTimeoutRef.current);
+          activeTimeoutRef.current = setTimeout(() => {
             if (metronomeAudio.current) {
               metronomeAudio.current.pause();
               metronomeAudio.current.currentTime = 0;
             }
             if (anthemAudio.current) {
+              console.log("Starting anthem...");
               // Ensure onended is correctly set for normal playback (not preview)
               anthemAudio.current.onended = () => {
                 console.log("Anthem finished");
@@ -129,8 +132,11 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
           }, 60000);
         } else {
           // Background runs for 60 seconds (standard)
-          if (anthemTimeoutRef.current) clearTimeout(anthemTimeoutRef.current);
-          anthemTimeoutRef.current = setTimeout(() => stopPlayback(), 60000);
+          if (activeTimeoutRef.current) clearTimeout(activeTimeoutRef.current);
+          activeTimeoutRef.current = setTimeout(() => {
+            console.log("Standard duration reached, stopping...");
+            stopPlayback();
+          }, 60000);
         }
       };
 
@@ -269,12 +275,15 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     const shouldTriggerMain = isExactlyMainTime && lastTriggerDate.current !== kyivTodayStr;
     const shouldTriggerTest = isExactlyTestTime && lastTriggerDate.current !== kyivTodayStr + "_test";
 
-    if ((shouldTriggerMain || shouldTriggerTest) && !isPlaying) {
+    if ((shouldTriggerMain || shouldTriggerTest) && !isPlayingRef.current) {
       console.log("TRIGGERED! Main:", shouldTriggerMain, "Test:", shouldTriggerTest);
       logToStorage(`Triggered: ${shouldTriggerMain ? "Main 09:00" : "Test Timer"}`);
       lastTriggerDate.current = shouldTriggerTest ? kyivTodayStr + "_test" : kyivTodayStr;
       setHasTriggeredToday(true);
       startPlayback();
+    } else if ((shouldTriggerMain || shouldTriggerTest) && isPlayingRef.current) {
+      // Prevent log spam, but helpful for debugging
+      if (now % 5000 < 1000) console.log("Trigger condition met but already playing...");
     }
 
     // Sync logs to state for UI updates
@@ -361,9 +370,15 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
   };
 
   const startPlayback = async () => {
-    if (isPlaying) return;
+    if (isPlayingRef.current) {
+      console.warn("startPlayback called while already playing. Ignoring.");
+      return;
+    }
+    
+    console.log("Starting playback...");
+    isPlayingRef.current = true;
     setIsPlaying(true);
-    setIsPreviewing(false); // Stop preview when actual playback starts
+    setIsPreviewing(false); 
     
     try {
       if (audioMode === "metronome_only") {
@@ -372,36 +387,61 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
           metronomeAudio.current.loop = true;
           await metronomeAudio.current.play();
         }
-        setTimeout(stopPlayback, 60000);
+        
+        if (activeTimeoutRef.current) clearTimeout(activeTimeoutRef.current);
+        activeTimeoutRef.current = setTimeout(() => {
+          console.log("Metronome only duration reached");
+          stopPlayback();
+        }, 60000);
       } else {
         // Speech modes - always start with intro
         if (introAudio.current) {
           console.log("Starting intro speech...");
+          introAudio.current.onended = (oldOnEnded => {
+            return (ev) => {
+              // Ensure we use the common logic defined in useEffect but with safety
+              console.log("Intro ended event triggered");
+              if (typeof oldOnEnded === 'function') oldOnEnded.call(introAudio.current, ev);
+            };
+          })(introAudio.current.onended);
+          
           introAudio.current.currentTime = 0;
           await introAudio.current.play();
         }
       }
     } catch (error) {
       console.error("Playback failed:", error);
-      // Fallback for UI if audio fails
-      setTimeout(stopPlayback, 60000);
+      logToStorage("Playback error: " + error);
+      stopPlayback();
     }
   };
 
   const stopPlayback = () => {
-    console.log("Stopping playback...");
+    console.log("Stopping all playback...");
+    isPlayingRef.current = false;
+    
+    if (activeTimeoutRef.current) {
+      clearTimeout(activeTimeoutRef.current);
+      activeTimeoutRef.current = null;
+    }
+    
     if (anthemTimeoutRef.current) {
       clearTimeout(anthemTimeoutRef.current);
       anthemTimeoutRef.current = null;
     }
+    
     [introAudio, metronomeAudio, musicAudio, anthemAudio].forEach(ref => {
       if (ref.current) {
         ref.current.pause();
         ref.current.currentTime = 0;
+        // Don't nullify onended here yet, as it's set in useEffect
+        // but it's safe because isPlayingRef is false
       }
     });
+    
     setIsPlaying(false);
     setIsPreviewing(false);
+    logToStorage("Playback stopped");
   };
 
   const previewAnthem = async (variant: AnthemVariant) => {
