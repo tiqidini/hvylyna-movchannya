@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 export type AudioMode = "speech_metronome" | "metronome_only" | "speech_music" | "speech_metronome_anthem";
 export type IntroVariant = "standard" | "alternative";
@@ -9,7 +10,16 @@ export type AnthemVariant = "instrumental" | "choral" | "rock" | "verovka";
 // Helper to get path for audio assets
 const getAudioPath = (filename: string) => {
   if (typeof window === "undefined") return "";
-  // Check if we are on GitHub Pages or local
+  
+  // Capacitor detection
+  const isCapacitor = (window as any).Capacitor !== undefined;
+  
+  if (isCapacitor) {
+    // In Capacitor, assets are served from the root of the app
+    return `audio/${filename}`;
+  }
+
+  // Check if we are on GitHub Pages or local web server
   const isGitHubPages = window.location.pathname.startsWith('/hvylyna-movchannya');
   const base = isGitHubPages ? '/hvylyna-movchannya/' : '/';
   return `${base}audio/${filename}`;
@@ -170,6 +180,26 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       const savedLogs = JSON.parse(localStorage.getItem("hvylyna_logs") || "[]");
       setLogs(savedLogs);
       logToStorage("App initialized");
+
+      // Initial schedule
+      scheduleMorningNotification();
+
+      // Setup WakeLock if supported
+      if ('wakeLock' in navigator) {
+        let wakeLock: any = null;
+        const requestWakeLock = async () => {
+          try {
+            wakeLock = await (navigator as any).wakeLock.request('screen');
+            logToStorage("WakeLock active");
+          } catch (err) {}
+        };
+        requestWakeLock();
+        document.addEventListener('visibilitychange', () => {
+          if (wakeLock !== null && document.visibilityState === 'visible') {
+            requestWakeLock();
+          }
+        });
+      }
     }
   }, []);
 
@@ -309,6 +339,48 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     if (now - lastWorkerLogRef.current > 30000) {
       logToStorage("Timer active (pulse)");
       lastWorkerLogRef.current = now;
+      
+      // Auto-schedule notification for tomorrow if needed
+      scheduleMorningNotification();
+    }
+  };
+
+  const scheduleMorningNotification = async () => {
+    if (typeof window === "undefined" || (window as any).Capacitor === undefined) return;
+    
+    try {
+      const perms = await LocalNotifications.checkPermissions();
+      if (perms.display !== 'granted') {
+        await LocalNotifications.requestPermissions();
+      }
+
+      // Schedule for 9:00 AM
+      const now = new Date();
+      const scheduleDate = new Date();
+      scheduleDate.setHours(9, 0, 0, 0);
+      
+      if (scheduleDate <= now) {
+        scheduleDate.setDate(scheduleDate.getDate() + 1);
+      }
+
+      await LocalNotifications.cancel({ notifications: [{ id: 900 }] });
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            title: "Хвилина Мовчання",
+            body: "Починається загальнонаціональна хвилина мовчання. Будь ласка, відкрийте додаток.",
+            id: 900,
+            schedule: { at: scheduleDate, allowWhileIdle: true },
+            sound: 'res://raw/bell', // fallback if possible
+            attachments: [],
+            actionTypeId: "",
+            extra: null
+          }
+        ]
+      });
+      // console.log("Morning notification scheduled for:", scheduleDate);
+    } catch (e) {
+      console.warn("Notification schedule failed:", e);
     }
   };
 

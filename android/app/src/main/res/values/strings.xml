@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hvylyna Movchannya</string>
+    <string name="title_activity_main">Hvylyna Movchannya</string>
+    <string name="package_name">com.hvylynamovchannya.app</string>
+    <string name="custom_url_scheme">com.hvylynamovchannya.app</string>
+</resources>
