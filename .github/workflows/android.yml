@@ -34,6 +34,11 @@ jobs:
 
       - name: Build Next.js app
         run: npm run build
+        env:
+          CAPACITOR_BUILD: 'true'
+
+      - name: Check build output
+        run: ls -R out
 
       - name: Capacitor Sync
         run: npx cap sync
