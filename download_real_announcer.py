@@ -37,11 +37,26 @@ for url in urls:
                 data = response.read()
                 # Ensure the folder exists
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                with open(output_path, "wb") as f:
+                temp_path = output_path.replace(".mp3", "_temp.mp3")
+                with open(temp_path, "wb") as f:
                     f.write(data)
-                print(f"Success! Voice downloaded from {url} ({len(data)} bytes).")
-                success = True
-                break
+                
+                try:
+                    import subprocess
+                    print("Extracting the first 27.5 seconds to get a clean voice...")
+                    cmd = [
+                        "ffmpeg", "-y", "-t", "27.5",
+                        "-i", temp_path,
+                        "-acodec", "libmp3lame", "-ab", "128k",
+                        output_path
+                    ]
+                    subprocess.run(cmd, check=True, capture_output=True)
+                    os.remove(temp_path)
+                    print(f"Success! Voice downloaded and trimmed from {url}")
+                    success = True
+                    break
+                except Exception as e:
+                    print(f"Error trimming downloaded voice: {e}")
     except Exception as e:
         print(f"Failed to download from {url}. Error: {e}")
 

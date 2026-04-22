@@ -103,11 +103,17 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
 
       // Setup transition handlers once
       introAudio.current.onended = () => {
-        const mode = audioModeRef.current;
+        // Read current mode directly from localStorage to ensure it's ALWAYS fresh
+        // regardless of React closures, since onended is a global DOM event
+        const savedMode = localStorage.getItem("hvylyna_audio_mode") as AudioMode;
+        const mode = savedMode || audioModeRef.current;
+        
         console.log("Intro ended, starting background mode:", mode);
+        
         const bgAudio = mode === "speech_music" ? musicAudio.current : metronomeAudio.current;
         if (bgAudio) {
-          bgAudio.loop = true;
+          bgAudio.loop = false; // We use timeout for exact duration
+          bgAudio.currentTime = 0;
           bgAudio.play().catch(e => console.warn("Background audio blocked", e));
         }
         
@@ -127,11 +133,12 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
                 console.log("Anthem finished");
                 stopPlayback();
               };
+              anthemAudio.current.currentTime = 0;
               anthemAudio.current.play().catch(e => console.error("Anthem blocked", e));
             }
           }, 60000);
         } else {
-          // Background runs for 60 seconds (standard)
+          // Background runs for 60 seconds (standard) then stop
           if (activeTimeoutRef.current) clearTimeout(activeTimeoutRef.current);
           activeTimeoutRef.current = setTimeout(() => {
             console.log("Standard duration reached, stopping...");
@@ -283,7 +290,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       startPlayback();
     } else if ((shouldTriggerMain || shouldTriggerTest) && isPlayingRef.current) {
       // Prevent log spam, but helpful for debugging
-      if (now % 5000 < 1000) console.log("Trigger condition met but already playing...");
+      if (Date.now() % 5000 < 1000) console.log("Trigger condition met but already playing...");
     }
 
     // Sync logs to state for UI updates
@@ -381,10 +388,14 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
     setIsPreviewing(false); 
     
     try {
-      if (audioMode === "metronome_only") {
+      const savedMode = localStorage.getItem("hvylyna_audio_mode") as AudioMode;
+      const currentMode = savedMode || audioMode;
+
+      if (currentMode === "metronome_only") {
         if (metronomeAudio.current) {
           console.log("Starting metronome only...");
           metronomeAudio.current.loop = true;
+          metronomeAudio.current.currentTime = 0;
           await metronomeAudio.current.play();
         }
         
@@ -397,14 +408,7 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
         // Speech modes - always start with intro
         if (introAudio.current) {
           console.log("Starting intro speech...");
-          introAudio.current.onended = (oldOnEnded => {
-            return (ev) => {
-              // Ensure we use the common logic defined in useEffect but with safety
-              console.log("Intro ended event triggered");
-              if (typeof oldOnEnded === 'function') oldOnEnded.call(introAudio.current, ev);
-            };
-          })(introAudio.current.onended);
-          
+          // Intro ends event handles the transition to bgAudio automatically
           introAudio.current.currentTime = 0;
           await introAudio.current.play();
         }
@@ -516,22 +520,6 @@ export const useAudioEngine = (targetHour: number = 9, targetMinute: number = 0)
       prime(musicAudio.current, "Music"),
       prime(anthemAudio.current, "Anthem")
     ]);
-    
-    // Also prime all anthem variants by temporarily changing src
-    // This is a bit aggressive but ensures they are all cached/unlocked
-    const variants: AnthemVariant[] = ["instrumental", "choral", "rock", "verovka"];
-    for (const v of variants) {
-      if (anthemAudio.current) {
-        const path = getAudioPath(`anthem_${v}.mp3`);
-        const tempAudio = new Audio(path);
-        tempAudio.volume = 0;
-        try {
-          await tempAudio.play();
-          tempAudio.pause();
-          logToStorage(`Variant primed: ${v}`);
-        } catch(e) {}
-      }
-    }
     
     isUnlocked.current = true;
     console.log("Audio system unlocked for this session.");
