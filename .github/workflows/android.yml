@@ -37,9 +37,6 @@ jobs:
         env:
           CAPACITOR_BUILD: 'true'
 
-      - name: Check build output
-        run: ls -R out
-
       - name: Capacitor Sync
         run: npx cap sync
 
@@ -47,9 +44,17 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --info
+          ./gradlew assembleDebug --stacktrace --info > ../build_log.txt 2>&1 || (tail -n 100 ../build_log.txt && exit 1)
+
+      - name: Upload Build Log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build_log.txt
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: hvylyna-movchannya-apk
