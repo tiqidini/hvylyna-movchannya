@@ -1,5 +1,7 @@
 import Player from "@/components/Player";
 
+export const dynamic = 'force-static';
+
 export default function Home() {
   return (
     <main className="relative min-h-screen flex items-center justify-center bg-[#050505] overflow-hidden">

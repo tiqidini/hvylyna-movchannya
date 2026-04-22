@@ -1,5 +1,4 @@
 /** @type {import('next').NextConfig} */
-const isGithubActions = process.env.GITHUB_ACTIONS || false;
 const isCapacitor = process.env.CAPACITOR_BUILD === 'true';
 
 const nextConfig = {
@@ -8,15 +7,16 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // In Next.js 16, these might be under 'dev' or handled differently
+  // For now, let's just use the core flags if possible, or remove them
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Removing eslint as it was reported as unrecognized
+  
   // Disable basePath for Capacitor builds
-  basePath: isCapacitor ? '' : (isGithubActions ? '/hvylyna-movchannya' : ''),
-  assetPrefix: isCapacitor ? '' : (isGithubActions ? '/hvylyna-movchannya/' : ''),
+  basePath: isCapacitor ? '' : '/hvylyna-movchannya',
+  assetPrefix: isCapacitor ? '' : '/hvylyna-movchannya/',
 };
 
 module.exports = nextConfig;
